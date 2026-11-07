@@ -2,7 +2,6 @@
 from pathlib import Path
 import platform
 import subprocess
-import sys
 from unittest.mock import patch
 
 import pytest
@@ -30,7 +29,7 @@ def environment(tmp_path):
     ):
         configure_lab_network([LAB.subnet], confirm=True, config_path=config)
         def fake_scan(command, **kwargs):
-            if sys.platform == 'darwin':
+            if host_system == 'Darwin':
                 assert command[0:2] == ['sudo', '-n']
                 output_path = command[4]
                 assert command[3] == '172.20.10.3'
@@ -97,7 +96,7 @@ def test_success_uses_guardrails_and_unique_artifacts(environment, channel):
 @pytest.mark.parametrize('body', [
     {'target': '172.20.10.3'}, {'target': '172.20.10.3', 'confirm': False},
     {'target': '172.20.10.3', 'confirm': 'true'}, {'target': '172.20.10.3', 'confirm': 1},
-    {'target': '172.20.10.3', 'confirm': True, 'allowed_networks': ['0.0.0.0/0']},
+    {'target': '172.20.10.3', 'confirm': True, 'allowed_networks': [LAB.subnet]},
     {'target': '172.20.10.3', 'confirm': True, 'output_path': '/tmp/override.xml'},
     {'target': 123, 'confirm': True},
 ])
@@ -194,4 +193,13 @@ def test_busy_scan_reports_conflict(environment, channel):
         else:
             response = environment[-1].post('/api/scan', json={'target': '172.20.10.3', 'confirm': True})
             assert response.status_code == 409
+    environment[3].assert_not_called()
+
+
+def test_api_cannot_bypass_missing_config_with_allowlist(environment):
+    environment[0].unlink()
+    response = environment[-1].post('/api/scan', json={
+        'target': '172.20.10.3', 'confirm': True, 'allowed_networks': [LAB.subnet],
+    })
+    assert response.status_code == 422
     environment[3].assert_not_called()

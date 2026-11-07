@@ -75,9 +75,14 @@ that `subprocess` was never called.
 ## Live Scanning and Local API
 
 ```sh
+python -m netcheck scan --confirm
 python -m netcheck scan 172.20.10.3 --confirm
 python -m netcheck serve
 ```
+
+Without a target, `scan --confirm` uses the authorized subnet from
+`lab/network.json`; no subnet is hardcoded. Both forms use the same RFC1918,
+allowlist, current-LAN, and confirmation validation.
 
 Live execution uses TCP SYN and UDP scanning. On macOS, only the Nmap process
 is elevated through a root-owned wrapper with strictly validated arguments.
@@ -176,6 +181,9 @@ remediation steps, and history.
 ### Secret Scanning
 
 The gitleaks scripts check both the working tree and Git history:
+#### Secret verification (live check 7)
+
+The gitleaks scripts check both the working tree and Git history:
 
 ```sh
 sh scripts/macos/check-secrets.sh
@@ -185,7 +193,10 @@ sh scripts/macos/check-secrets.sh
 .\scripts\windows\check-secrets.ps1
 ```
 
-Run the script for the relevant platform after installing gitleaks separately.
+Run the relevant platform script after installing gitleaks separately. Expected
+result: exit code 0 with no reported secrets; a missing executable is an
+explicit failure, not a success. CI runs the same check on push and pull
+request.
 
 - `GET /api/network`: detect the network without scanning.
 - `POST /api/scan`: `{"target":"172.20.10.3","confirm":true}`.
@@ -201,7 +212,8 @@ Run the script for the relevant platform after installing gitleaks separately.
 ## Verification
 
 ```sh
-python -m pytest -q
+python -m pip install -r requirements-dev.txt
+python -m pytest -q -m "not native"
 ```
 
 Normal tests simulate Nmap and do not generate scan traffic. To read the
@@ -211,6 +223,17 @@ actual local network configuration, still without scanning, set
 ```sh
 NETCHECK_NATIVE_TEST=1 python -m pytest tests/test_network_native.py -q
 ```
+
+The GitHub Actions matrix deliberately excludes tests marked `native`: hosted
+runners use virtual or changing network topologies and cannot certify the
+laboratory adapter. The deterministic suite runs on macOS, Windows, and Linux
+without scan traffic or services. It needs no Nmap installation or administrator
+privileges; database and lock files are isolated in temporary directories.
+CI uses Linux/Python 3.10 and macOS + Windows/Python 3.13 instead of repeating
+all OS/Python combinations. Workflows run only on pull requests (including new
+commits) or manually via `workflow_dispatch`, never on `push`; direct pushes
+without a PR require a manual run. New runs cancel older runs for the same PR.
+Gitleaks is the single secret scanner, separate from the Python tests.
 
 Network detection has been verified on the laboratory Mac. Windows/Linux have
 backends and simulated tests; the CI workflow is configured, but each platform

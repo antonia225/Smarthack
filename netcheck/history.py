@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import os
@@ -17,7 +18,7 @@ def _database_path(path: str | Path | None) -> Path:
     return Path(path) if path is not None else DB_PATH
 
 
-def _connect(path: str | Path | None = None) -> sqlite3.Connection:
+def _open_connection(path: str | Path | None = None) -> sqlite3.Connection:
     connection = sqlite3.connect(_database_path(path))
     connection.row_factory = sqlite3.Row
     connection.executescript(
@@ -65,6 +66,16 @@ def _connect(path: str | Path | None = None) -> sqlite3.Connection:
     )
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+
+
+@contextmanager
+def _connect(path: str | Path | None = None):
+    connection = _open_connection(path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None) -> int:
@@ -146,7 +157,7 @@ def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None) -> in
 
 
 def list_scans(db_path: str | Path | None = None) -> list[dict[str, Any]]:
-    """List saved scans from newest to oldest."""
+    """List saved scans in insertion order (the UI uses the last as newest)."""
 
     with _connect(db_path) as connection:
         rows = connection.execute(

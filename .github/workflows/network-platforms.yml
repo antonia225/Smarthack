@@ -1,25 +1,35 @@
-name: Network detection platforms
+name: Tests
 
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 permissions:
   contents: read
 
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   network:
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        python: ['3.10', '3.13']
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+          - os: macos-latest
+            python: '3.13'
+          - os: windows-latest
+            python: '3.13'
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -r requirements-dev.txt
-      - name: Guardrails, CLI/API and native detection (no scans)
-        run: python -m pytest -q
-        env:
-          NETCHECK_NATIVE_TEST: '1'
+      - name: Deterministic tests (no scans, native network, or services)
+        run: python -m pytest -q -m "not native"

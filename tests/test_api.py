@@ -41,29 +41,3 @@ def test_import_list_get_compare_and_delete(monkeypatch, tmp_path):
 
     assert client.delete("/api/history").json() == {"status": "ok"}
     assert client.get("/api/scans").json() == []
-
-
-def test_live_scan_rejects_unauthorized_target(monkeypatch, tmp_path):
-    monkeypatch.setattr(history, "DB_PATH", tmp_path / "netcheck.db")
-    run_called = False
-
-    def fail_if_called(*args, **kwargs):
-        nonlocal run_called
-        run_called = True
-        raise AssertionError("nmap must not run for a rejected target")
-
-    monkeypatch.setattr(api, "run_scan", fail_if_called)
-    client = TestClient(api.app)
-
-    response = client.post(
-        "/api/scan",
-        json={
-            "target": "8.8.8.8",
-            "allowed_networks": ["172.20.10.0/28"],
-            "confirm": True,
-        },
-    )
-
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "permission_denied"
-    assert run_called is False

@@ -164,7 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Demonstrate authorization refusals without Nmap",
     )
     scan = commands.add_parser("scan")
-    scan.add_argument("target")
+    scan.add_argument("target", nargs="?")
     scan.add_argument("--confirm", action="store_true")
     scan.add_argument("--output-dir", type=Path, default=None)
     lab_run = commands.add_parser(
@@ -208,8 +208,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "demo-refusals":
             return _demo_refusals()
         if args.command == "scan":
+            target = (
+                args.target
+                if args.target is not None
+                else scanner.default_scan_target(args.config)
+            )
             outcome = service.scan(
-                args.target,
+                target,
                 confirm=args.confirm,
                 config_path=args.config,
                 output_dir=args.output_dir,

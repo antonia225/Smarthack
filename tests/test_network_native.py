@@ -13,8 +13,11 @@ import pytest
 from netcheck.scanner import NetworkDetectionError, detect_network
 
 
-@pytest.mark.skipif(os.environ.get("NETCHECK_NATIVE_TEST") != "1",
-                    reason="Native network inspection is opt-in")
+@pytest.mark.native
+@pytest.mark.skipif(
+    os.environ.get("NETCHECK_NATIVE_TEST") != "1",
+    reason="Native network inspection is opt-in",
+)
 def test_native_network_commands_and_parser():
     try:
         info = detect_network()

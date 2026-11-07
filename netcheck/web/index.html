@@ -1,12 +1,330 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Netcheck</title>
-  </head>
-  <body>
-    <main id="app"></main>
-    <script src="app.js"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetCheck</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Iconițe (SVG, fără emoji) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.5 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 8.5v4M12 15.6h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6l7-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1v-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 001 1h8a1 1 0 001-1l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-devices" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 20h8M12 16v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 12.3l2.4 2.4 4.6-4.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8a2 2 0 012-2h1.5l1.2-2h6.6l1.2 2H18a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-router" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 16.5h.01M11 16.5h.01M8 10a5.7 5.7 0 018 0M5.5 7.5a9 9 0 0113 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5a1 1 0 01-1-1v-5a2 2 0 012-2h12a2 2 0 012 2v5a1 1 0 01-1 1h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><rect x="7" y="14" width="10" height="6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 18h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-unknown" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.8 9.6a2.3 2.3 0 114 1.4c-.8.7-1.8 1.1-1.8 2.3M12 16.6h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-swap" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19L12 3.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.4h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 13l2.5-7h11L20 13v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM4 13h4.5l1 2.5h5l1-2.5H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <a class="skip" href="#main" id="skip-link" data-i18n="skip"></a>
+
+  <div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <button type="button" class="brand" id="btn-toggle" aria-expanded="true">
+        <span class="logo" aria-hidden="true"><svg><use href="#i-shield"/></svg></span>
+        <span class="brand-name" data-i18n="appName"></span>
+      </button>
+    </div>
+
+    <nav class="nav" data-i18n-aria="navLabel">
+      <button type="button" class="nav-btn active" data-view="home">
+        <svg aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="navHome"></span>
+      </button>
+      <button type="button" class="nav-btn" data-view="history">
+        <svg aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="navHistory"></span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main">
+  <div class="main-top">
+    <button type="button" class="btn btn-primary" id="btn-import">
+      <svg aria-hidden="true"><use href="#i-upload"/></svg><span data-i18n="importXml"></span>
+    </button>
+    <input type="file" id="file-input" accept=".xml" hidden>
+    <button type="button" class="lang" id="btn-lang" data-i18n-aria="langLabel">
+      <span class="lang-opt" id="lang-ro" data-i18n="langRo"></span>
+      <span class="lang-opt" id="lang-en" data-i18n="langEn"></span>
+    </button>
+  </div>
+
+  <div id="messages" class="messages" role="status" aria-live="polite" hidden>
+    <span id="messages-text"></span>
+    <button type="button" class="msg-close" id="messages-close" data-i18n-aria="msgClose">×</button>
+  </div>
+
+  <main class="content" id="main" tabindex="-1">
+    <!-- ================= ACASĂ ================= -->
+    <section id="view-home" class="view">
+
+      <!-- Stare goală -->
+      <div id="empty-state" class="card state-card" hidden>
+        <span class="state-icon" aria-hidden="true"><svg><use href="#i-inbox"/></svg></span>
+        <h2 data-i18n="emptyTitle"></h2>
+        <p class="muted" data-i18n="emptyText"></p>
+        <button type="button" class="btn btn-primary" data-action="import">
+          <svg aria-hidden="true"><use href="#i-upload"/></svg><span data-i18n="importXml"></span>
+        </button>
+      </div>
+
+      <!-- Fișier defect -->
+      <div id="error-card" class="card state-card error-card" role="alert" hidden>
+        <span class="state-icon" aria-hidden="true"><svg><use href="#i-warning"/></svg></span>
+        <h2 data-i18n="errorTitle"></h2>
+        <p class="error-file"><strong data-i18n="errorFileLabel"></strong> <span class="mono" data-i18n="errorFileName"></span></p>
+        <p data-i18n="errorText"></p>
+        <div class="error-steps">
+          <h3 data-i18n="errorStepsTitle"></h3>
+          <ol class="steps">
+            <li data-i18n="errorStep1"></li>
+            <li data-i18n="errorStep2"></li>
+            <li data-i18n="errorStep3"></li>
+          </ol>
+        </div>
+        <button type="button" class="btn btn-primary" data-action="import">
+          <svg aria-hidden="true"><use href="#i-upload"/></svg><span data-i18n="errorRetry"></span>
+        </button>
+      </div>
+
+      <div id="home-content" class="stack">
+        <div class="top-row">
+          <div class="scan-picker">
+            <label for="scan-select" data-i18n="scanSelectLabel"></label>
+            <select id="scan-select">
+              <option value="mock" data-i18n="scanOption"></option>
+            </select>
+          </div>
+          <p class="last-scan"><svg aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="lastScan"></span></p>
+        </div>
+
+        <!-- Scor + cel mai periculos dispozitiv -->
+        <article class="card hero" id="hero">
+          <div class="overview">
+            <!-- Când există probleme -->
+            <div id="hero-problem" class="hero-stack">
+              <p class="hero-heading" data-i18n="heroDevice"></p>
+              <div class="device-chip">
+                <span class="device-icon" aria-hidden="true" id="hero-device-icon"></span>
+                <div class="device-lines">
+                  <span class="device-name" id="hero-device-name"></span>
+                  <span class="device-meta"><span id="hero-device-type"></span><span id="hero-device-ip"></span></span>
+                </div>
+              </div>
+
+              <div class="hero-problem">
+                <span class="pill sev-high" id="overview-pill"></span>
+                <h1 id="hero-title"></h1>
+                <p class="explain" id="hero-explain"></p>
+              </div>
+
+              <div class="first-step">
+                <h2 class="first-step-title">
+                  <svg aria-hidden="true"><use href="#i-flag"/></svg>
+                  <span data-i18n="firstStepTitle"></span>
+                </h2>
+                <p id="hero-first"></p>
+              </div>
+
+              <a class="link" href="#problems" id="see-all" data-i18n="seeAllProblems"></a>
+            </div>
+
+            <!-- Când nu există probleme -->
+            <div id="hero-clean" class="clean-state" hidden>
+              <span class="state-icon good" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+              <h1 data-i18n="cleanTitle"></h1>
+              <p class="explain" data-i18n="cleanText"></p>
+            </div>
+          </div>
+
+          <aside class="score-panel" id="score-panel">
+            <div class="ring" role="img" data-i18n-aria="scoreAria">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+                <circle class="ring-value" id="ring-value" cx="60" cy="60" r="52"></circle>
+              </svg>
+              <div class="ring-text">
+                <span class="ring-number" id="score-number"></span>
+                <span class="ring-of" data-i18n="scoreOf"></span>
+              </div>
+            </div>
+
+            <div class="score-badge" id="score-badge">
+              <span class="score-badge-icon" id="score-badge-icon" aria-hidden="true"></span>
+              <div class="score-badge-text">
+                <strong id="score-label"></strong>
+                <span id="score-attention"></span>
+              </div>
+            </div>
+
+            <p class="score-rule" data-i18n="scoreRule"></p>
+
+            <ul class="sev-list" id="sev-list"></ul>
+          </aside>
+        </article>
+
+        <!-- Rezumat -->
+        <section class="summary" id="summary"></section>
+
+        <!-- Probleme: căutare, filtru, carduri -->
+        <section class="card" id="problems" tabindex="-1">
+          <div class="card-head">
+            <h2 data-i18n="problemsTitle"></h2>
+            <div class="filters">
+              <label class="sr-only" for="search" data-i18n="searchLabel"></label>
+              <input type="search" id="search" data-i18n-placeholder="searchPlaceholder" autocomplete="off">
+              <label class="sr-only" for="sev-filter" data-i18n="filterLabel"></label>
+              <select id="sev-filter"></select>
+            </div>
+          </div>
+          <ul class="problem-cards" id="problem-list"></ul>
+          <p class="muted" id="no-results" hidden></p>
+          <div class="more-wrap"><button type="button" class="btn" id="see-more" hidden></button></div>
+        </section>
+
+        <!-- Dispozitive -->
+        <section class="card" id="devices">
+          <h2 data-i18n="devicesTitle"></h2>
+          <div class="table-wrap">
+            <table class="table devices-table">
+              <thead>
+                <tr>
+                  <th scope="col" data-i18n="colIp"></th>
+                  <th scope="col" data-i18n="colType"></th>
+                  <th scope="col" data-i18n="colName"></th>
+                  <th scope="col" data-i18n="colVendor"></th>
+                  <th scope="col" data-i18n="colMac"></th>
+                  <th scope="col" data-i18n="colWorst"></th>
+                  <th scope="col" data-i18n="colPorts"></th>
+                  <th scope="col" data-i18n="colAction"></th>
+                </tr>
+              </thead>
+              <tbody id="device-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+    <!-- ================= PROBLEMĂ (detaliu) ================= -->
+    <section id="view-problem" class="view" hidden>
+      <div><button type="button" class="btn" id="back-btn" data-i18n="back"></button></div>
+      <article class="card detail" id="problem-detail"></article>
+    </section>
+
+    <!-- ================= ISTORIC ================= -->
+    <section id="view-history" class="view" hidden>
+      <div class="page-head">
+        <h1 data-i18n="historyTitle"></h1>
+        <button type="button" class="btn btn-ghost-danger" id="btn-clear">
+          <svg aria-hidden="true"><use href="#i-trash"/></svg><span data-i18n="clearHistory"></span>
+        </button>
+      </div>
+
+      <div id="history-empty" class="card state-card" hidden>
+        <span class="state-icon" aria-hidden="true"><svg><use href="#i-inbox"/></svg></span>
+        <h2 data-i18n="historyEmptyTitle"></h2>
+        <p class="muted" data-i18n="historyEmptyText"></p>
+      </div>
+
+      <div id="history-content" class="stack">
+        <!-- Grafic -->
+        <section class="card">
+          <h2 data-i18n="chartTitle"></h2>
+          <div class="chart-layout">
+            <div class="chart-wrap" id="chart-wrap" tabindex="0"></div>
+            <ul class="chart-stats" id="chart-stats"></ul>
+          </div>
+        </section>
+
+        <!-- Comparare -->
+        <section class="card" id="compare" tabindex="-1">
+          <h2 data-i18n="compareTitle"></h2>
+          <div class="compare-stage">
+            <div class="compare-panel" id="panel-before">
+              <label for="cmp-before" data-i18n="compareBefore"></label>
+              <select id="cmp-before"></select>
+              <div class="panel-body" id="panel-before-body"></div>
+            </div>
+
+            <div class="compare-arrow" aria-hidden="true"><svg><use href="#i-swap"/></svg></div>
+
+            <div class="compare-panel" id="panel-after">
+              <label for="cmp-after" data-i18n="compareAfter"></label>
+              <select id="cmp-after"></select>
+              <div class="panel-body" id="panel-after-body"></div>
+            </div>
+          </div>
+
+          <p class="compare-summary" id="compare-summary" role="status"></p>
+
+          <div class="diff-grid" id="diff-grid"></div>
+        </section>
+
+        <!-- Tabel scanări -->
+        <section class="card">
+          <h2 data-i18n="histScansTitle"></h2>
+          <div class="table-wrap">
+            <table class="table history-table">
+              <thead>
+                <tr>
+                  <th scope="col" data-i18n="histFile"></th>
+                  <th scope="col" data-i18n="histDate"></th>
+                  <th scope="col" data-i18n="histScore"></th>
+                  <th scope="col" data-i18n="histProblems"></th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  </div>
+  </div>
+
+  <!-- Fereastra mică cu problemele unei gravități -->
+  <dialog id="sev-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-head">
+      <h2 id="dialog-title"></h2>
+      <button type="button" class="msg-close" id="dialog-close" data-i18n-aria="close">×</button>
+    </div>
+    <ul class="problem-list" id="dialog-list"></ul>
+  </dialog>
+
+  <!-- Confirmare: șterge tot istoricul -->
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <h2 id="confirm-title" data-i18n="confirmTitle"></h2>
+    <p class="muted" id="confirm-text" data-i18n="confirmText"></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn" id="confirm-cancel" data-i18n="cancel"></button>
+      <button type="button" class="btn btn-danger-solid" id="confirm-ok" data-i18n="confirmDelete"></button>
+    </div>
+  </dialog>
+
+  <script src="texts.js"></script>
+  <script src="app.js"></script>
+</body>
 </html>

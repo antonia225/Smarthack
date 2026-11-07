@@ -1,0 +1,33 @@
+name: smarthack-lab
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: "${LAB_DB_PASSWORD:?Genereaza o parola temporara pentru laborator}"
+      POSTGRES_DB: fictiv
+    ports:
+      - "${LAB_BIND_IP:?Seteaza IP-ul gazdei Docker pe hotspot}:5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    restart: "no"
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "${LAB_BIND_IP:?Seteaza IP-ul gazdei Docker pe hotspot}:1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: "no"
+  simulators:
+    image: python:3.13-alpine
+    user: "65534:65534"
+    command: ["python", "-B", "/lab/simulators.py", "--bind", "0.0.0.0"]
+    ports:
+      - "${LAB_BIND_IP:?Seteaza IP-ul gazdei Docker pe hotspot}:21:2121"
+      - "${LAB_BIND_IP:?Seteaza IP-ul gazdei Docker pe hotspot}:23:2323"
+    volumes:
+      - ./simulators.py:/lab/simulators.py:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"

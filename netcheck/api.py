@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 import tempfile
 from typing import Any
+from uuid import uuid4
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import history
-from .scanner import run_scan, validate_scan_request
-from .scoring import analyze_file
+from netcheck import history, scanner, service
+from netcheck.scoring import analyze_file
 
 
-app = FastAPI(title="NetCheck")
+run_scan = scanner.run_scan
 
 
 class ScanRequest(BaseModel):
-    target: str
+    model_config = ConfigDict(extra="forbid")
+    target: StrictStr
+    confirm: StrictBool = False
     allowed_networks: list[str] | None = None
-    confirm: bool = False
 
 
 def _error_response(
@@ -43,99 +46,149 @@ def _error_response(
     )
 
 
-@app.post("/api/import")
-async def import_scan(request: Request, filename: str = Query("scan.xml")) -> dict[str, Any]:
-    """Import one XML document from the request body and save its analysis."""
-
-    content = await request.body()
-    safe_name = Path(filename).name or "scan.xml"
-    with tempfile.TemporaryDirectory(prefix="netcheck-import-") as directory:
-        path = Path(directory) / safe_name
-        path.write_bytes(content)
-        analysis = analyze_file(path)
-
-    scan_id = history.save_scan(analysis)
-    return {"scan_id": scan_id, **analysis}
+def _scan_output_path(output_dir: Path | None) -> tuple[Path, tempfile.TemporaryDirectory[str] | None]:
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir / f"api-scan-{uuid4().hex}.xml", None
+    directory = tempfile.TemporaryDirectory(prefix="netcheck-scan-")
+    return Path(directory.name) / "scan.xml", directory
 
 
-@app.get("/api/scans")
-def scans() -> list[dict[str, Any]]:
-    return history.list_scans()
+def create_app(
+    *,
+    config_path: Path = scanner._DEFAULT_LAB_CONFIG,
+    output_dir: Path | None = None,
+) -> FastAPI:
+    application = FastAPI(title="NetCheck")
+    application.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
+    )
 
+    @application.get("/api/network")
+    def network() -> dict[str, Any]:
+        try:
+            return asdict(scanner.detect_network())
+        except scanner.NetworkDetectionError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-@app.get("/api/scans/{scan_id}")
-def scan(scan_id: int) -> dict[str, Any]:
-    try:
-        return history.get_scan(scan_id)
-    except KeyError as exc:
-        raise _not_found("Scan not found.") from exc
+    @application.post("/api/import")
+    async def import_scan(
+        request: Request,
+        filename: str = Query("scan.xml"),
+    ) -> dict[str, Any]:
+        content = await request.body()
+        safe_name = Path(filename).name or "scan.xml"
+        with tempfile.TemporaryDirectory(prefix="netcheck-import-") as directory:
+            path = Path(directory) / safe_name
+            path.write_bytes(content)
+            analysis = analyze_file(path)
+        scan_id = history.save_scan(analysis)
+        return {"scan_id": scan_id, **analysis}
 
+    @application.get("/api/scans")
+    def scans() -> list[dict[str, Any]]:
+        return history.list_scans()
 
-@app.get("/api/compare")
-def compare_scans(
-    a: int = Query(...),
-    b: int = Query(...),
-) -> dict[str, Any]:
-    try:
-        return history.compare(a, b)
-    except KeyError as exc:
-        raise _not_found("Scan not found.") from exc
-    except ValueError as exc:
-        raise _bad_request(str(exc)) from exc
+    @application.get("/api/scans/{scan_id}")
+    def scan(scan_id: int) -> dict[str, Any]:
+        try:
+            return history.get_scan(scan_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Scan not found.") from exc
 
+    @application.get("/api/compare")
+    def compare_scans(
+        a: int = Query(...),
+        b: int = Query(...),
+    ) -> dict[str, Any]:
+        try:
+            return history.compare(a, b)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Scan not found.") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-@app.delete("/api/history")
-def clear_history() -> dict[str, str]:
-    history.delete_history()
-    return {"status": "ok"}
+    @application.delete("/api/history")
+    def clear_history() -> dict[str, str]:
+        history.delete_history()
+        return {"status": "ok"}
 
-
-@app.post("/api/scan", response_model=None)
-def live_scan(request: ScanRequest) -> dict[str, Any] | JSONResponse:
-    """Validate and run one authorized live scan without elevating the API."""
-
-    try:
-        validated = validate_scan_request(
-            request.target,
-            request.allowed_networks,
-            request.confirm,
-        )
-    except PermissionError as exc:
-        return _error_response(
-            "permission_denied",
-            str(exc),
-            str(exc),
-            403,
-        )
-
-    with tempfile.TemporaryDirectory(prefix="netcheck-scan-") as directory:
-        output_path = str(Path(directory) / "scan.xml")
-        result = run_scan(validated, output_path)
-        if not result.success:
+    @application.post("/api/scan", response_model=None)
+    def live_scan(request: ScanRequest) -> dict[str, Any] | JSONResponse:
+        try:
+            if request.allowed_networks is not None:
+                validated = scanner.validate_scan_request(
+                    request.target,
+                    request.allowed_networks,
+                    request.confirm,
+                    config_path=config_path,
+                )
+                output_path, temporary_directory = _scan_output_path(output_dir)
+                try:
+                    result = run_scan(validated, str(output_path))
+                    analysis_path = output_path
+                    if not result.success:
+                        return _error_response(
+                            "scan_failed",
+                            result.error or "Scanarea a eșuată.",
+                            result.error or "The scan failed.",
+                            502,
+                        )
+                    analysis = analyze_file(analysis_path)
+                finally:
+                    if temporary_directory is not None:
+                        temporary_directory.cleanup()
+            else:
+                result = service.scan(
+                    request.target,
+                    confirm=request.confirm,
+                    config_path=config_path,
+                    output_dir=output_dir,
+                )
+                if not result.success:
+                    return _error_response(
+                        "scan_failed",
+                        result.error or "Scanarea a eșuată.",
+                        result.error or "The scan failed.",
+                        502,
+                    )
+                analysis = analyze_file(result.xml_path)
+        except service.ScanBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except PermissionError as exc:
             return _error_response(
-                "scan_failed",
-                result.error or "Scanarea a eșuată.",
-                result.error or "The scan failed.",
-                502,
+                "permission_denied",
+                str(exc),
+                str(exc),
+                403,
+            )
+        except scanner.NetworkDetectionError as exc:
+            return _error_response(
+                "network_detection_failed",
+                str(exc),
+                str(exc),
+                409,
+            )
+        except OSError as exc:
+            return _error_response(
+                "operation_failed",
+                "Eroare de operare.",
+                "Operation failed.",
+                500,
             )
 
-        analysis = analyze_file(output_path)
-    scan_id = history.save_scan(analysis)
-    return {"scan_id": scan_id, **analysis}
+        scan_id = history.save_scan(analysis)
+        return {"scan_id": scan_id, **asdict(result), **analysis}
+
+    web_directory = Path(__file__).with_name("web")
+    if web_directory.is_dir():
+        application.mount(
+            "/",
+            StaticFiles(directory=web_directory, html=True),
+            name="web",
+        )
+    return application
 
 
-def _not_found(message: str) -> Exception:
-    from fastapi import HTTPException
-
-    return HTTPException(status_code=404, detail=message)
-
-
-def _bad_request(message: str) -> Exception:
-    from fastapi import HTTPException
-
-    return HTTPException(status_code=400, detail=message)
-
-
-web_directory = Path(__file__).with_name("web")
-if web_directory.is_dir():
-    app.mount("/", StaticFiles(directory=web_directory, html=True), name="web")
+app = create_app()

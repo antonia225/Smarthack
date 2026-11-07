@@ -10,7 +10,26 @@ htmlcov/
 
 # Environment and local data
 .env
+*.env
+!.env.example
+*.sqlite
 *.sqlite3
+*.db
+lab/network.json
+scans/
+logs/
+*.log
+.netcheck-scan.lock
+lab/services/remediation-state.json
+lab/services/remediation-state.txt
+
+# XML scan artifacts are intentionally kept visible to Git.
+!lab/before/
+!lab/before/**/*.xml
+!lab/after/
+!lab/after/**/*.xml
+!tests/
+!tests/**/*.xml
 
 # Operating-system files
 .DS_Store

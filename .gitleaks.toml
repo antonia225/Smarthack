@@ -1,0 +1,4 @@
+title = "Netcheck gitleaks configuration"
+
+[extend]
+useDefault = true

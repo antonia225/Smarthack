@@ -7,6 +7,13 @@ nu s-au pornit scanări live sau servicii de laborator.
 
 ## Ce este disponibil
 
+În această revizie au fost reparate prin cod și teste: wrapperul macOS
+compară directoare rezolvate, acceptă numai ținte RFC1918 și primește lista
+TCP generată din `nmap-services`; `scan --confirm` poate folosi subnetul
+autorizat din configurație; verificatorul XML are logică unificată. Privilegiile
+macOS, scanarea reală, BEFORE/AFTER și rezultatele gitleaks rămân
+**NEVERIFICATE live**.
+
 | Componentă | Implementare și dovadă | Ce mai trebuie verificat |
 | --- | --- | --- |
 | Task 1: laborator documentat | Hotspot, roluri și captură HTTP reală păstrată; instrucțiuni de reproducere | Completați inventarul interfețelor/prefixelor țintelor și confirmați reproducerea pe configurația curentă |
@@ -32,9 +39,9 @@ rezultatul așteptat.
 | FR-01 detectare | Implementată; suport nativ confirmat pe macOS |
 | FR-02 domeniu autorizat | Implementat și testat cu simulări; demonstrați refuzul IP-urilor publice, rețelei locației și lipsei confirmării |
 | FR-03 dispozitive | `parser.py` este schelet; trebuie IP, MAC mascat, vendor, hostname și estimare de tip |
-| FR-04 porturi/servicii | Comanda și execuția limitată sunt implementate; scanarea reală și acoperirea necesită verificare |
+| FR-04 porturi/servicii | Selecția top 1.000 TCP din `nmap-services`, wrapperul macOS generat și execuția limitată sunt implementate și testate; scanarea reală și acoperirea necesită verificare |
 | FR-05 analiză offline | Neimplementată; parser sigur, erori explicite, fără acces la rețea |
-| FR-06 reguli | `rules.py` și catalogul sunt neimplementate; aplicați exact toate cele **15 coduri**, inclusiv `SSH_OPEN`, numai pe porturi `open` și după numele serviciului |
+| FR-06 reguli | `rules.py` și catalogul sunt neimplementate; brief-ul are **15 coduri**, inclusiv `SSH_OPEN` (nu 14), numai pe porturi `open` și după numele serviciului |
 | FR-07/08 explicații și remedieri | Catalogul este gol; maximum două propoziții și 1–5 pași concreți per finding, în RO/EN |
 | FR-09 scor | `scoring.py` este schelet; `max(0, 100 - suma punctelor)` |
 | FR-10 istoric | `history.py` este schelet; scanări locale, diferențe și evoluția scorului, plus ștergere completă |
@@ -54,7 +61,8 @@ produs deja de motorul aplicației.
 
 ## Securitate, fiabilitate și utilizare
 
-- **Privilegii (NFR-04):** implementat, dar **neverificat live**. Pe macOS,
+- **Privilegii (NFR-04):** implementat și testat fără execuție Nmap, dar
+  **neverificat live**. Pe macOS,
   sudoers permite numai wrapperul root-owned, nu binarul Nmap; wrapperul
   validează ținta și calea XML și fixează comanda. Pe Windows se folosește
   Nmap ne-elevat cu Npcap încărcat, conform documentației oficiale Nmap.
@@ -68,9 +76,9 @@ produs deja de motorul aplicației.
   poate conține date complete: revizuiți capturile înainte de distribuire.
 - **Secrete (NFR-01):** configurația locală și parola temporară DB sunt în
   afara Git, iar `.env.example` documentează explicit că aplicația nu citește
-  variabile de mediu. Au fost adăugate configurația și scripturile gitleaks
-  pentru working tree și istoric. Gitleaks 8.30.1 a scanat working tree-ul și
-  toate cele 31 de commit-uri; nu au fost găsite leak-uri.
+  variabile de mediu. Au   fost adăugate configurația, jobul CI și scripturile gitleaks pentru working
+  tree și istoric. **Configurat, neobservat încă**: rularea live gitleaks trebuie
+  făcută manual și în CI.
 - **Determinism (NFR-05):** viitorul motor va produce identic findings,
   severități și scoruri; nu folosiți LLM pentru aceste decizii.
 - **Performanță (NFR-07):** măsurați analiza offline sub 30 s/fișier și scanarea

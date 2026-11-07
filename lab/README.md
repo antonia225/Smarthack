@@ -67,6 +67,7 @@ schimbările relevante de firewall. Folosiți doar țintele autorizate ale
 laboratorului și salvați rezultatele noi în fișiere distincte, fără a
 suprascrie acest artefact. Comparațiile înainte/după trebuie să urmărească
 același dispozitiv și serviciu, chiar dacă adresa IP se schimbă.
+Folosiți șablonul [session-template.md](session-template.md).
 
 ## BEFORE -> remediere -> AFTER
 
@@ -102,6 +103,10 @@ această performanță rămâne de măsurat pe laptop și rețeaua reale.
 ```sh
 python lab/compare.py lab/before lab/after
 ```
+
+După ce există XML-uri BEFORE și AFTER, puteți rula
+`sh scripts/lab-verify.sh` (sau `.\scripts\lab-verify.ps1` pe Windows).
+Scriptul doar verifică și compară fișierele existente; nu pornește Nmap.
 
 Comparația folosește exclusiv `lab/services/check_xml.py` pentru
 `HTTP_ADMIN_CLEARTEXT`, `DB_EXPOSED`, `MQTT_EXPOSED`, `TELNET_OPEN` și

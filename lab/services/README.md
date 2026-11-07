@@ -108,6 +108,16 @@ si nagios-nsca in locul numelor necesare. Configuratia actuala nu garanteaza
 identificarea celor cinci servicii; scanarea prin hotspot este urmatorul
 pas de verificare, nu o remediere garantata a acestor nume.
 
+### Dacă un serviciu nu e identificat cu numele din catalog
+
+Nu editați XML-ul și nu relaxați regulile. Reporniți serviciul cu configurația
+corectă, apoi rescanați. Alternativele acceptate în brief sunt: Redis pe
+`6379`, `eclipse-mosquitto` pe `1.6`, nginx cu titlul `Admin Login`, bannerul
+`BusyBox telnetd` pe Telnet și bannerul `vsftpd 2.3.4` pe FTP pentru
+`OUTDATED_SERVICE`. Orice simulator folosește bannere false, fără shell,
+login sau date reale. Un simulator FTP cu bannerul vsftpd poate fi adăugat
+doar printr-un flag explicit; nu este activat implicit.
+
 ## 6. Oprire
 
 Windows: Ctrl+C in terminalul HTTP.

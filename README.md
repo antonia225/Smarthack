@@ -75,9 +75,14 @@ that `subprocess` was never called.
 ## Live Scanning and Local API
 
 ```sh
+python -m netcheck scan --confirm
 python -m netcheck scan 172.20.10.3 --confirm
 python -m netcheck serve
 ```
+
+Without a target, `scan --confirm` uses the authorized subnet from
+`lab/network.json`; no subnet is hardcoded. Both forms use the same RFC1918,
+allowlist, current-LAN, and confirmation validation.
 
 Live execution uses TCP SYN and UDP scanning. On macOS, only the Nmap process
 is elevated through a root-owned wrapper with strictly validated arguments.
@@ -176,6 +181,9 @@ remediation steps, and history.
 ### Secret Scanning
 
 The gitleaks scripts check both the working tree and Git history:
+#### Secret verification (live check 7)
+
+The gitleaks scripts check both the working tree and Git history:
 
 ```sh
 sh scripts/macos/check-secrets.sh
@@ -185,7 +193,10 @@ sh scripts/macos/check-secrets.sh
 .\scripts\windows\check-secrets.ps1
 ```
 
-Run the script for the relevant platform after installing gitleaks separately.
+Run the relevant platform script after installing gitleaks separately. Expected
+result: exit code 0 with no reported secrets; a missing executable is an
+explicit failure, not a success. CI runs the same check on push and pull
+request.
 
 - `GET /api/network`: detect the network without scanning.
 - `POST /api/scan`: `{"target":"172.20.10.3","confirm":true}`.

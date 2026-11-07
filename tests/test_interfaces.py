@@ -1,7 +1,7 @@
 """CLI/HTTP integration through real guardrails, with no scan traffic."""
 from pathlib import Path
-import platform
 import subprocess
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -24,7 +24,7 @@ def environment(tmp_path):
     ) as process, patch('netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'):
         configure_lab_network([LAB.subnet], confirm=True, config_path=config)
         def fake_scan(command, **kwargs):
-            if platform.system() == 'Darwin':
+            if sys.platform == 'darwin':
                 assert command[0:2] == ['sudo', '-n']
                 output_path = command[4]
                 assert command[3] == '172.20.10.3'

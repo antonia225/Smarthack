@@ -223,6 +223,11 @@ actual local network configuration, still without scanning, set
 NETCHECK_NATIVE_TEST=1 python -m pytest tests/test_network_native.py -q
 ```
 
+The GitHub Actions matrix deliberately excludes tests marked `native`: hosted
+runners use virtual or changing network topologies and cannot certify the
+laboratory adapter. The deterministic suite runs on macOS, Windows, and Linux
+without scan traffic or services.
+
 Network detection has been verified on the laboratory Mac. Windows/Linux have
 backends and simulated tests; the CI workflow is configured, but each platform
 must still be verified natively before the demonstration. See

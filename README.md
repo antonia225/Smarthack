@@ -178,6 +178,16 @@ two scans, and history deletion. The local server also serves the web
 interface from `netcheck/web/`, which displays the score, devices, findings,
 remediation steps, and history.
 
+### Learning Mode
+
+Learning Mode answers questions about a saved scan from the local catalog and
+the allowlisted corpus in `knowledge/sources.json`. It pseudonymizes devices
+before an optional provider request and always falls back to local
+documentation when no `NETCHECK_LLM_API_KEY` and `NETCHECK_LLM_MODEL` are
+configured. Build the corpus with `python3 scripts/build_knowledge.py` when
+internet access is available; the command uses only the Python standard
+library. The chat endpoint is `POST /api/ask`.
+
 ### Secret Scanning
 
 The gitleaks scripts check both the working tree and Git history:

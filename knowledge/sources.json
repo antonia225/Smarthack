@@ -1,0 +1,44 @@
+[
+  {
+    "id": "mdn-http",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview",
+    "license": "CC-BY-SA 2.5",
+    "attribution": "MDN Web Docs contributors",
+    "topics": ["http", "web", "tls", "security"]
+  },
+  {
+    "id": "rfc1918",
+    "url": "https://www.rfc-editor.org/rfc/rfc1918",
+    "license": "IETF Trust Legal Provisions (RFC 5378)",
+    "attribution": "IETF",
+    "topics": ["private-addresses", "network"]
+  },
+  {
+    "id": "cisa-secure-iot",
+    "url": "https://www.cisa.gov/resources-tools/resources/cybersecurity-iot",
+    "license": "U.S. Government work; verify page terms when retrieving",
+    "attribution": "Cybersecurity and Infrastructure Security Agency",
+    "topics": ["iot", "security", "updates"]
+  },
+  {
+    "id": "nist-iot-baseline",
+    "url": "https://csrc.nist.gov/publications/detail/ir/8259/final",
+    "license": "U.S. Government work; verify page terms when retrieving",
+    "attribution": "National Institute of Standards and Technology",
+    "topics": ["iot", "security", "updates"]
+  },
+  {
+    "id": "owasp-iot",
+    "url": "https://owasp.org/www-project-internet-of-things/",
+    "license": "CC-BY-SA 4.0",
+    "attribution": "OWASP Foundation",
+    "topics": ["iot", "passwords", "services"]
+  },
+  {
+    "id": "rfc8446",
+    "url": "https://www.rfc-editor.org/rfc/rfc8446",
+    "license": "IETF Trust Legal Provisions (RFC 5378)",
+    "attribution": "IETF",
+    "topics": ["tls", "encryption", "security"]
+  }
+]

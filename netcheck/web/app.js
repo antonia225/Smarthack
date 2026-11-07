@@ -8,7 +8,8 @@ const state = {
   currentScanId: null,
   panel: "list",
   selectedIp: null,
-  messageTimer: null
+  messageTimer: null,
+  chatMessages: []
 };
 
 const SEVERITIES = ["high", "medium", "low", "info"];
@@ -241,13 +242,84 @@ function renderChat(panel, scan) {
   panel.append(back);
   panel.append(node("h2", "", text("chatTitle", "Explanations for you")));
   panel.append(node("p", "privacy-note", text("chatNotice", "AI is not connected yet. Local explanations remain available.")));
+  const context = node("p", "context-chip");
+  context.textContent = state.selectedIp ? text("device", "Device") + ": " + state.selectedIp : text("networkTitle", "Device map");
+  panel.append(context);
+  const log = node("div", "chat-log");
+  log.setAttribute("role", "log");
+  log.setAttribute("aria-live", "polite");
+  state.chatMessages.forEach((message) => {
+    const item = node("article", "chat-message " + message.role);
+    item.append(node("strong", "", message.role === "user" ? "Tu" : text("assistant", "Asistent")));
+    if (message.mode) {
+      item.append(node("span", "chat-mode", message.mode === "ai"
+        ? text("aiAnswer", "Asistent AI")
+        : text("docAnswer", "Răspuns din documentație")));
+    }
+    item.append(node("p", "", message.text));
+    if (message.sources && message.sources.length) {
+      const sources = node("p", "chat-sources", text("sources", "Sources") + ": " +
+        message.sources.map((source) => source.title || source.id).join(", "));
+      item.append(sources);
+    }
+    log.append(item);
+  });
+  panel.append(log);
   const questions = node("div", "chat-questions");
   [text("chatQuestion", "What do the results mean?"), text("chatSteps", "Where do I start?")].forEach((question) => {
     const button = node("button", "button", question); button.type = "button";
-    button.addEventListener("click", () => announce((findings(scan)[0] && findings(scan)[0].explain) || text("noAdvice", "No advice available.")));
+    button.addEventListener("click", () => askLearning(scan, question));
     questions.append(button);
   });
   panel.append(questions);
+  const form = node("form", "chat-form");
+  const input = node("input");
+  input.type = "text"; input.required = true; input.maxLength = 500;
+  input.placeholder = text("chatPlaceholder", "Ask about this scan");
+  input.setAttribute("aria-label", text("chatPlaceholder", "Ask about this scan"));
+  const submit = node("button", "button primary", text("send", "Send"));
+  submit.type = "submit";
+  form.append(input, submit);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    askLearning(scan, input.value);
+  });
+  panel.append(form);
+}
+
+async function askLearning(scan, question) {
+  const value = question.trim();
+  if (!value || !scan) return;
+  state.chatMessages.push({ role: "user", text: value });
+  state.chatMessages.push({ role: "assistant", text: text("loading", "Loading…") });
+  render();
+  try {
+    const response = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scan_id: scan.id,
+        device_ip: state.selectedIp,
+        question: value,
+        lang: state.lang
+      })
+    });
+    if (!response.ok) throw new Error("ask");
+    const result = await response.json();
+    state.chatMessages[state.chatMessages.length - 1] = {
+      role: "assistant",
+      text: result.answer,
+      sources: result.sources,
+      mode: result.mode
+    };
+  } catch (error) {
+    state.chatMessages[state.chatMessages.length - 1] = {
+      role: "assistant",
+      text: text("chatError", "The assistant could not answer right now.")
+    };
+  }
+  render();
+  focusPanel();
 }
 
 function renderHome() {
@@ -391,7 +463,7 @@ function bindEvents() {
 }
 
 function openDevice(ip) {
-  state.selectedIp = ip; state.panel = "detail"; render(); focusPanel();
+  state.selectedIp = ip; state.panel = "detail"; state.chatMessages = []; render(); focusPanel();
 }
 
 loadLanguage();

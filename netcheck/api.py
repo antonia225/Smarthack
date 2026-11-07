@@ -16,6 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from netcheck import history, scanner, service
 from netcheck.scoring import analyze_file
 from netcheck.catalog import CatalogError, attach_explanations
+from netcheck.learn_api import router as learn_router
 
 
 class ScanRequest(BaseModel):
@@ -52,6 +53,7 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
     )
+    application.include_router(learn_router)
 
     @application.exception_handler(CatalogError)
     async def catalog_error(request: Request, exc: CatalogError) -> JSONResponse:

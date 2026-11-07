@@ -454,7 +454,11 @@ function bindEvents() {
     if (!response.ok) { announce(text("deleteFailed", "Could not clear history."), "error"); return; }
     $("confirm-dialog").close(); state.scans = []; state.currentScanId = null; announce(text("deleted", "History was cleared.")); render();
   });
-  $("btn-export").addEventListener("click", () => announce(text("exportNote", "The export report will be available in phase 3.")));
+  $("btn-export").addEventListener("click", () => {
+    const scan = currentScan();
+    if (scan) window.open("/api/report?a=" + encodeURIComponent(scan.id) + "&lang=" + state.lang, "_blank", "noopener");
+    else announce(text("historyEmptyText", "History is empty."));
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.view === "home" && state.panel !== "list") {
       state.panel = state.panel === "chat" ? "detail" : "list"; render(); focusPanel();

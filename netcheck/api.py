@@ -8,7 +8,7 @@ import tempfile
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -17,6 +17,7 @@ from netcheck import history, scanner, service
 from netcheck.scoring import analyze_file
 from netcheck.catalog import CatalogError, attach_explanations
 from netcheck.learn_api import router as learn_router
+from netcheck.report import render_report
 
 
 class ScanRequest(BaseModel):
@@ -54,6 +55,21 @@ def create_app(
         allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
     )
     application.include_router(learn_router)
+
+    @application.get("/api/report", response_class=HTMLResponse)
+    def report(
+        a: int = Query(...),
+        b: int | None = Query(None),
+        lang: Literal["ro", "en"] = Query("ro"),
+    ) -> HTMLResponse:
+        try:
+            current = history.get_scan(b if b is not None else a)
+            before = history.get_scan(a) if b is not None else None
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Scan not found.") from exc
+        if current.get("status") != "ok" or (before is not None and before.get("status") != "ok"):
+            raise HTTPException(status_code=400, detail="Reports need valid scans.")
+        return HTMLResponse(render_report(current, before=before, lang=lang))
 
     @application.exception_handler(CatalogError)
     async def catalog_error(request: Request, exc: CatalogError) -> JSONResponse:

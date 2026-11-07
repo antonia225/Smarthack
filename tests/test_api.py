@@ -43,6 +43,36 @@ def test_import_list_get_compare_and_delete(monkeypatch, tmp_path):
     assert client.get("/api/scans").json() == []
 
 
+def test_report_is_escaped_private_and_contains_resolved_findings(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "DB_PATH", tmp_path / "report.db")
+    client = TestClient(api.app)
+    before = client.post(
+        "/api/import?filename=%3Cunsafe%3E.xml",
+        content=(VALIDATION_DIR / "V6a_before.xml").read_bytes(),
+    ).json()["scan_id"]
+    after = client.post(
+        "/api/import?filename=after.xml",
+        content=(VALIDATION_DIR / "V6b_after.xml").read_bytes(),
+    ).json()["scan_id"]
+
+    report = client.get(f"/api/report?a={before}&b={after}&lang=en")
+
+    assert report.status_code == 200
+    html = report.text
+    assert "<!doctype html>" in html
+    assert "50:C7:BF:88:24:57" not in html
+    assert "router.lan" not in html
+    assert "&lt;unsafe&gt;.xml" not in html
+    assert "Resolved between scans" in html
+    assert "Telnet" in html
+
+
+def test_report_rejects_missing_or_invalid_scan(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "DB_PATH", tmp_path / "report-errors.db")
+    client = TestClient(api.app)
+    assert client.get("/api/report?a=404").status_code == 404
+
+
 import pytest
 from dataclasses import dataclass
 from netcheck.catalog import load_catalog

@@ -14,29 +14,73 @@ from netcheck.scanner import (
 )
 
 
-def test_detect_network_parses_macos_commands():
+def interface(name="en0", ip="172.20.10.3", mask="0xfffffff0", flags="UP,BROADCAST,RUNNING", status="active"):
+    return f"{name}: flags=8863<{flags}> mtu 1500\n\tinet {ip} netmask {mask}\n\tstatus: {status}\n"
+
+
+def detect_with(interfaces, routes="default 172.20.10.1 UGScg en0\n"):
     outputs = {
-        ("route", "-n", "get", "default"): (
-            "   gateway: 172.20.10.1\n"
-            " interface: en0\n"
-        ),
-        ("ipconfig", "getifaddr", "en0"): "172.20.10.3\n",
-        ("ifconfig", "en0"): "inet 172.20.10.3 netmask 0xfffffff0 broadcast 172.20.10.15\n",
+        ("/sbin/ifconfig", "-a"): interfaces,
+        ("/usr/sbin/netstat", "-rn", "-f", "inet"): "Destination Gateway Flags Netif Expire\n" + routes,
     }
-
     def fake_run(command, **kwargs):
-        key = tuple(command)
-        return type("Completed", (), {"stdout": outputs[key], "stderr": ""})()
+        return type("Completed", (), {"stdout": outputs[tuple(command)]})()
+    with patch("netcheck.scanner.platform.system", return_value="Darwin"), patch(
+        "netcheck.scanner.subprocess.run", side_effect=fake_run
+    ):
+        return detect_network()
 
-    with patch("netcheck.scanner.subprocess.run", side_effect=fake_run):
-        result = detect_network()
 
-    assert result == NetworkInfo(
-        interface="en0",
-        ip="172.20.10.3",
-        cidr="172.20.10.0/28",
-        gateway="172.20.10.1",
-    )
+@pytest.mark.parametrize("mask,prefix,subnet", [
+    ("0xfffffff0", 28, "172.20.10.0/28"),
+    ("0xffffff00", 24, "172.20.10.0/24"),
+    ("255.255.254.0", 23, "172.20.10.0/23"),
+])
+def test_detect_network_uses_real_mask(mask, prefix, subnet):
+    result = detect_with(interface(mask=mask) + interface("lo0", "127.0.0.1", flags="UP,LOOPBACK"))
+    assert result == NetworkInfo("en0", "172.20.10.3", prefix, subnet, "172.20.10.1")
+    assert result.cidr == subnet
+
+
+@pytest.mark.parametrize("interfaces,routes", [
+    ("", ""),
+    (interface(status="inactive"), ""),
+    (interface(ip="169.254.1.2"), ""),
+    (interface() + interface("en1"), "default 172.20.10.1 UG en0"),
+    (interface() + interface("utun0", flags="UP,POINTOPOINT"), ""),
+    (interface() + interface("bridge0"), ""),
+    (interface(), "default 172.20.10.1 UG en0\n10/8 10.0.0.1 UG utun0"),
+    (interface(), ""),
+    (interface(), "default 192.168.1.1 UG en0"),
+    (interface(), "default 172.20.10.1 UG en0\ndefault 172.20.10.4 UG en0"),
+    (interface(mask="0xff00ff00"), ""),
+    (interface(), "default link#14 UG en0"),
+    (interface(), "default 172.20.10.3 UG en0"),
+    (interface() + "\tinet 172.20.10.4 netmask 0xfffffff0\n", ""),
+])
+def test_detect_network_fails_closed(interfaces, routes):
+    from netcheck.scanner import NetworkDetectionError
+    with pytest.raises(NetworkDetectionError):
+        detect_with(interfaces, routes)
+
+
+def test_ipv6_only_tunnel_does_not_block_ipv4():
+    assert detect_with(interface() + "utun0: flags=8051<UP,POINTOPOINT> mtu 1500\n\tinet6 fe80::1 prefixlen 64\n").interface == "en0"
+
+
+def test_unsupported_platform():
+    from netcheck.scanner import NetworkDetectionError
+    with patch("netcheck.scanner.platform.system", return_value="FreeBSD"), patch("netcheck.scanner.subprocess.run") as run:
+        with pytest.raises(NetworkDetectionError, match="macOS"):
+            detect_network()
+        run.assert_not_called()
+
+
+def test_command_failure_is_clear():
+    from netcheck.scanner import NetworkDetectionError
+    with patch("netcheck.scanner.platform.system", return_value="Darwin"), patch("netcheck.scanner.subprocess.run", side_effect=OSError("unavailable")):
+        with pytest.raises(NetworkDetectionError, match="configurația"):
+            detect_network()
 
 
 def test_validate_scan_request_accepts_allowed_private_network():

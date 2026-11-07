@@ -467,6 +467,10 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
     else:
         try:
             ports = port_specification()
+        except FileNotFoundError as exc:
+            if "nmap lipsește" in str(exc).lower() and "not installed" in str(exc).lower():
+                return outcome(False, "nmap nu este instalat / nmap is not installed")
+            return outcome(False, str(exc))
         except (OSError, ValueError) as exc:
             return outcome(False, str(exc))
         command = [

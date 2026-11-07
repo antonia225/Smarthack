@@ -10,6 +10,20 @@ import sys
 ALLOWED_DIR = Path("/var/tmp/netcheck-scans")
 NMAP = "/usr/local/bin/nmap"
 OUTPUT_NAME = re.compile(r"^[0-9a-f]{32}\.xml$")
+PORT_SPECIFICATION = "__PORT_SPECIFICATION__"
+RFC1918 = (
+    ip_network("10.0.0.0/8"),
+    ip_network("172.16.0.0/12"),
+    ip_network("192.168.0.0/16"),
+)
+
+
+def _ports() -> str:
+    if PORT_SPECIFICATION != "__PORT_SPECIFICATION__":
+        return PORT_SPECIFICATION
+    # Development wrapper: use the same local database as the unprivileged app.
+    from netcheck.nmap_ports import port_specification
+    return port_specification()
 
 
 def main(argv: list[str]) -> int:
@@ -20,13 +34,15 @@ def main(argv: list[str]) -> int:
         output = Path(argv[2]).resolve(strict=False)
     except ValueError:
         return 2
-    if target.version != 4 or target.prefixlen < 24:
+    if target.version != 4 or target.prefixlen < 24 or not any(
+        target.subnet_of(private) for private in RFC1918
+    ):
         return 2
-    if output.parent != ALLOWED_DIR or not OUTPUT_NAME.fullmatch(output.name):
+    if output.parent != ALLOWED_DIR.resolve() or not OUTPUT_NAME.fullmatch(output.name):
         return 2
     os.execv(NMAP, [
         NMAP, "-n", "-sS", "-sU", "-sV", "--script", "http-title",
-        "--script-timeout", "30s", "-p", "T:1-1000,U:53,123,161,1900,5353",
+        "--script-timeout", "30s", "-p", _ports(),
         "--max-rate", "100", "-oX", str(output), argv[1],
     ])
     return 1

@@ -441,6 +441,19 @@ def validate_scan_request(
     return ValidatedTarget(canonical, permitted, expected, _signature(canonical, permitted, expected))
 
 
+def default_scan_target(config_path: str | Path = _DEFAULT_LAB_CONFIG) -> str:
+    """Return the persisted authorized subnet for the target-less CLI form."""
+    try:
+        data = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        network = NetworkInfo(**data["network"])
+        return network.subnet
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise _permission_error(
+            "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",
+            "Lab configuration missing or invalid; explicitly configure the lab",
+        ) from exc
+
+
 def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
     """Run the fixed allowlisted Nmap scan and save its XML output."""
 

@@ -6,7 +6,12 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from services.check_xml import EXPECTED, codes_for_paths
+try:
+    from lab.services.check_xml import EXPECTED, codes_for_paths
+except ModuleNotFoundError as exc:
+    if exc.name != "services":
+        raise
+    from services.check_xml import EXPECTED, codes_for_paths
 
 
 def _xml_files(folder: Path) -> list[Path]:

@@ -155,7 +155,7 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path, system)
     def fake_run(command, **kwargs):
         if system == "Darwin":
             expected = [
-                "sudo", "-n", "/usr/local/libexec/netcheck-nmap-wrapper",
+                "sudo", "-n", str(Path("/usr/local/libexec/netcheck-nmap-wrapper")),
                 "172.20.10.3", str(Path(output_path).resolve()),
             ]
         else:

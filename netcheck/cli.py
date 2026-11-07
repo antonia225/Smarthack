@@ -1,16 +1,58 @@
-"""Local CLI: configure-lab, network, scan, lab-run, demo-refusals and serve."""
+"""Local CLI for analysis, guarded scans, lab runs, and the API server."""
+
+from __future__ import annotations
+
 import argparse
 from dataclasses import asdict
 from datetime import datetime, timezone
+import csv
 import json
+from ipaddress import ip_network
 import platform
 from pathlib import Path
-import subprocess
 import sys
 from unittest.mock import patch
-from ipaddress import ip_network
 
 from netcheck import scanner, service
+from netcheck.scoring import analyze_file, sort_findings_for_csv
+
+
+def _analyze_command(folder: Path, output: Path) -> int:
+    output.mkdir(parents=True, exist_ok=True)
+    results = [analyze_file(path) for path in sorted(folder.glob("*.xml"))]
+
+    with (output / "findings.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["file", "ip", "port", "finding_code", "severity"],
+        )
+        writer.writeheader()
+        for finding in sort_findings_for_csv(results):
+            writer.writerow(
+                {
+                    "file": finding["file"],
+                    "ip": finding["ip"],
+                    "port": "" if finding["port"] is None else finding["port"],
+                    "finding_code": finding["code"],
+                    "severity": finding["severity"],
+                }
+            )
+
+    with (output / "scores.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["file", "network_score"])
+        writer.writeheader()
+        for result in results:
+            writer.writerow(
+                {
+                    "file": result["file"],
+                    "network_score": (
+                        result["network_score"]
+                        if result["status"] == "ok"
+                        else "ERROR"
+                    ),
+                }
+            )
+    return 0
 
 
 def _demo_refusals() -> int:
@@ -25,7 +67,7 @@ def _demo_refusals() -> int:
         for label, target, confirm in cases:
             try:
                 scanner.validate_scan_request(
-                    target, [safe_network], confirm=confirm,
+                    target, [safe_network], confirm=confirm
                 )
             except PermissionError as exc:
                 print(f"REFUZAT / REFUSED: {label} ({target}): {exc}")
@@ -45,15 +87,21 @@ def _demo_refusals() -> int:
     return 0
 
 
-def _write_lab_metadata(xml_path: Path, *, targets: list[str],
-                        network: scanner.NetworkInfo,
-                        duration_seconds: float) -> None:
+def _write_lab_metadata(
+    xml_path: Path,
+    *,
+    targets: list[str],
+    network: scanner.NetworkInfo,
+    duration_seconds: float,
+) -> None:
     metadata = {
         "date": datetime.now(timezone.utc).isoformat(),
         "scanner_laptop": platform.node() or "unknown",
         "targets": targets,
         "duration_seconds": duration_seconds,
-        "address_count": sum(ip_network(target, strict=False).num_addresses for target in targets),
+        "address_count": sum(
+            ip_network(target, strict=False).num_addresses for target in targets
+        ),
         "network": asdict(network),
     }
     with xml_path.with_suffix(".json").open("x", encoding="utf-8") as handle:
@@ -73,7 +121,10 @@ def _lab_run(args) -> int:
             output_dir=output_dir,
         )
         if not outcome.success:
-            print(outcome.error or "Scanare eșuată / Scan failed", file=sys.stderr)
+            print(
+                outcome.error or "Scanare eșuată / Scan failed",
+                file=sys.stderr,
+            )
             return 1
         xml_path = Path(outcome.xml_path)
         _write_lab_metadata(
@@ -82,24 +133,36 @@ def _lab_run(args) -> int:
             network=network,
             duration_seconds=outcome.duration_seconds,
         )
-        results.append({
-            "xml_path": str(xml_path),
-            "metadata_path": str(xml_path.with_suffix(".json")),
-            "duration_seconds": outcome.duration_seconds,
-        })
+        results.append(
+            {
+                "xml_path": str(xml_path),
+                "metadata_path": str(xml_path.with_suffix(".json")),
+                "duration_seconds": outcome.duration_seconds,
+            }
+        )
     print(json.dumps({"label": args.label, "results": results}, ensure_ascii=False))
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="netcheck")
     parser.add_argument("--config", type=Path, default=scanner._DEFAULT_LAB_CONFIG)
     commands = parser.add_subparsers(dest="command", required=True)
+
+    analyze = commands.add_parser("analyze", help="Analyze Nmap XML files")
+    analyze.add_argument("folder", type=Path)
+    analyze.add_argument("--out", required=True, type=Path)
     commands.add_parser("network", help="Detect IPv4 network without scanning")
-    configure = commands.add_parser("configure-lab", help="Authorize the connected lab after confirmation")
+    configure = commands.add_parser(
+        "configure-lab",
+        help="Authorize the connected lab after confirmation",
+    )
     configure.add_argument("--allow", action="append")
     configure.add_argument("--confirm", action="store_true")
-    commands.add_parser("demo-refusals", help="Demonstrate authorization refusals without Nmap")
+    commands.add_parser(
+        "demo-refusals",
+        help="Demonstrate authorization refusals without Nmap",
+    )
     scan = commands.add_parser("scan")
     scan.add_argument("target")
     scan.add_argument("--confirm", action="store_true")
@@ -114,11 +177,19 @@ def main(argv: list[str] | None = None) -> int:
     serve = commands.add_parser("serve", help="Serve local API on 127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--output-dir", type=Path, default=None)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "analyze":
+            return _analyze_command(args.folder, args.out)
         if args.command == "network":
-            result = asdict(scanner.detect_network())
-        elif args.command == "configure-lab":
+            print(json.dumps(asdict(scanner.detect_network()), ensure_ascii=False))
+            return 0
+        if args.command == "configure-lab":
             allowed = args.allow
             if allowed is None:
                 proposal = scanner.detect_network()
@@ -127,32 +198,43 @@ def main(argv: list[str] | None = None) -> int:
                     f"{proposal.subnet}"
                 )
                 allowed = [proposal.subnet]
-            scanner.configure_lab_network(allowed, confirm=args.confirm, config_path=args.config)
-            result = {"configured": True, "config": str(args.config)}
-        elif args.command == "demo-refusals":
+            scanner.configure_lab_network(
+                allowed,
+                confirm=args.confirm,
+                config_path=args.config,
+            )
+            print(json.dumps({"configured": True, "config": str(args.config)}))
+            return 0
+        if args.command == "demo-refusals":
             return _demo_refusals()
-        elif args.command == "scan":
-            outcome = service.scan(args.target, confirm=args.confirm,
-                                   config_path=args.config, output_dir=args.output_dir)
+        if args.command == "scan":
+            outcome = service.scan(
+                args.target,
+                confirm=args.confirm,
+                config_path=args.config,
+                output_dir=args.output_dir,
+            )
             print(json.dumps(asdict(outcome), ensure_ascii=False))
             return 0 if outcome.success else 1
-        elif args.command == "lab-run":
+        if args.command == "lab-run":
             return _lab_run(args)
-        else:
-            import uvicorn
-            from netcheck.api import create_app
-            uvicorn.run(create_app(config_path=args.config, output_dir=args.output_dir),
-                        host="127.0.0.1", port=args.port)
-            return 0
-        print(json.dumps(result, ensure_ascii=False))
+
+        import uvicorn
+        from netcheck.api import create_app
+
+        uvicorn.run(
+            create_app(config_path=args.config, output_dir=args.output_dir),
+            host="127.0.0.1",
+            port=args.port,
+        )
         return 0
-    except (PermissionError, scanner.NetworkDetectionError, service.ScanBusyError) as exc:
+    except (
+        PermissionError,
+        scanner.NetworkDetectionError,
+        service.ScanBusyError,
+    ) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     except OSError as exc:
         print(f"Eroare de operare / Operation failed: {exc}", file=sys.stderr)
         return 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

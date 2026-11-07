@@ -4,9 +4,9 @@ Prototip pentru tema **Secure Networks, Simply Explained**: scanarea unei
 rețele proprii, explicarea riscurilor și verificarea remedierilor.
 
 În prezent sunt implementate detectarea rețelei, autorizarea laboratorului,
-scannerul și accesul prin CLI/API local. **Analiza offline, findings, scorul,
-istoricul și interfața pentru utilizator nu sunt încă implementate.**
-Starea pe cerințe și pașii rămași sunt în [starea proiectului](docs/project-status.md).
+scannerul, analiza offline a XML-urilor Nmap, findings, scorul, istoricul
+SQLite, accesul prin CLI/API local și interfața web. Starea pe cerințe și
+pașii rămași sunt în [starea proiectului](docs/project-status.md).
 
 ## Instalare
 
@@ -117,9 +117,9 @@ complet, cu parsare sigură și limită de 10 MB. Un timeout este un eșec,
 `scan` returnează JSON și scrie XML într-un fișier unic din `scans/` (Windows)
 sau `/var/tmp/netcheck-scans` (macOS), ori în `--output-dir CALE` pentru
 execuții neprivilegiate/test. XML-urile brute pot conține date despre dispozitive;
-folderul este local și exclus din Git. Mascarea datelor în produsul final
-rămâne parte din implementarea analizorului/UI. Rezultatul scannerului nu
-conține încă findings sau scor.
+folderul este local și exclus din Git. Comanda `scan` raportează rezultatul
+execuției Nmap; API-ul și comanda `analyze` pot apoi parsa XML-ul, calcula
+findings și scorul.
 
 O singură scanare poate rula simultan prin serviciu în același checkout,
 inclusiv între procese CLI/API. Blocarea folosește `.netcheck-scan.lock`,
@@ -147,9 +147,28 @@ Nu ștergeți XML-urile BEFORE/AFTER; ele sunt rezultate de experiment.
 
 ### Analiză de fișiere
 
-**NEIMPLEMENTAT / NOT IMPLEMENTED:** comanda `analyze` și motorul de analiză
-offline sunt responsabilitatea colegei care lucrează la motor. Nu există încă
-o comandă suportată pentru analiză sau export de findings/scoruri.
+Analiza offline nu pornește Nmap și lucrează numai cu XML-uri existente:
+
+```sh
+python -m netcheck analyze tests/validation --out output
+```
+
+Pentru fiecare XML, aplicația parsează dispozitivele și porturile, aplică
+regulile, calculează scorul și scrie:
+
+- `output/findings.csv` — fișier, IP, port, cod finding și severitate;
+- `output/scores.csv` — fișier și scorul rețelei sau `ERROR` pentru XML invalid.
+
+Rezultatul intern include și dispozitivele, MAC-uri mascate, tipuri estimate
+și finding-ul cu cel mai mare risc.
+
+### Istoric și interfață
+
+Analizele importate prin API și scanările live reușite pot fi salvate local în
+`netcheck.db`. API-ul oferă listarea scanărilor, citirea unei scanări,
+compararea a două scanări și ștergerea istoricului. Serverul local servește și
+interfața web din `netcheck/web/`, care afișează scorul, dispozitivele,
+findings, pașii de remediere și istoricul.
 
 ### Verificarea secretelor
 
@@ -194,6 +213,9 @@ Detectarea a fost verificată pe Mac-ul laboratorului. Windows/Linux au
 backend-uri și teste simulate; workflow-ul CI este configurat, dar rezultatele
 sale nu sunt încă confirmate în această documentație. Verificați nativ fiecare
 platformă înainte de demonstrație. Detalii: [detectarea rețelei](docs/network-detection.md).
+
+Testele acoperă detectarea rețelei, guardrail-urile, scanarea simulată,
+parserul XML, findings, scorul, istoricul și endpoint-urile API.
 
 Documentația laboratorului și captura HTTP preliminară sunt în
 [lab/README.md](lab/README.md). Pentru continuarea lucrului, consultați

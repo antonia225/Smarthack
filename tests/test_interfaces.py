@@ -19,6 +19,8 @@ def environment(tmp_path):
     config = tmp_path / 'lab.json'
     output = tmp_path / 'scans'
     with patch('netcheck.scanner.detect_network', return_value=LAB) as detect, patch(
+        'netcheck.scanner.platform.system', return_value='Darwin'
+    ), patch(
         'netcheck.scanner.subprocess.run'
     ) as process, patch('netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'):
         configure_lab_network([LAB.subnet], confirm=True, config_path=config)

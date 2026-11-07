@@ -161,7 +161,9 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
         Path(output_path).write_text('<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>', encoding="utf-8")
         return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
-    with patch("netcheck.scanner.subprocess.run", side_effect=fake_run), patch(
+    with patch("netcheck.scanner.platform.system", return_value="Darwin"), patch(
+        "netcheck.scanner.subprocess.run", side_effect=fake_run
+    ), patch(
         "netcheck.scanner.port_specification", return_value="T:1-1000,U:53,123,161,1900,5353"
     ):
         result = run_scan(validated, output_path)

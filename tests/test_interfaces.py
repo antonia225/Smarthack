@@ -1,5 +1,6 @@
 """CLI/HTTP integration through real guardrails, with no scan traffic."""
 from pathlib import Path
+import platform
 import subprocess
 import sys
 from unittest.mock import patch
@@ -21,7 +22,11 @@ def environment(tmp_path):
     output = tmp_path / 'scans'
     with patch('netcheck.scanner.detect_network', return_value=LAB) as detect, patch(
         'netcheck.scanner.subprocess.run'
-    ) as process, patch('netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'):
+    ) as process, patch(
+        'netcheck.scanner.platform.system', return_value=platform.system()
+    ), patch(
+        'netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'
+    ):
         configure_lab_network([LAB.subnet], confirm=True, config_path=config)
         def fake_scan(command, **kwargs):
             if sys.platform == 'darwin':

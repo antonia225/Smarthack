@@ -14,6 +14,8 @@ htmlcov/
 lab/network.json
 scans/
 .netcheck-scan.lock
+lab/services/remediation-state.json
+lab/services/remediation-state.txt
 
 # Operating-system files
 .DS_Store

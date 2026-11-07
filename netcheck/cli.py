@@ -1,11 +1,14 @@
-"""Local CLI: configure-lab, network, scan, demo-refusals and serve."""
+"""Local CLI: configure-lab, network, scan, lab-run, demo-refusals and serve."""
 import argparse
 from dataclasses import asdict
+from datetime import datetime, timezone
 import json
+import platform
 from pathlib import Path
 import subprocess
 import sys
 from unittest.mock import patch
+from ipaddress import ip_network
 
 from netcheck import scanner, service
 
@@ -42,6 +45,52 @@ def _demo_refusals() -> int:
     return 0
 
 
+def _write_lab_metadata(xml_path: Path, *, targets: list[str],
+                        network: scanner.NetworkInfo,
+                        duration_seconds: float) -> None:
+    metadata = {
+        "date": datetime.now(timezone.utc).isoformat(),
+        "scanner_laptop": platform.node() or "unknown",
+        "targets": targets,
+        "duration_seconds": duration_seconds,
+        "address_count": sum(ip_network(target, strict=False).num_addresses for target in targets),
+        "network": asdict(network),
+    }
+    with xml_path.with_suffix(".json").open("x", encoding="utf-8") as handle:
+        json.dump(metadata, handle, ensure_ascii=False, indent=2)
+
+
+def _lab_run(args) -> int:
+    output_dir = Path("lab") / args.label
+    output_dir.mkdir(parents=True, exist_ok=True)
+    network = scanner.detect_network()
+    results = []
+    for target in args.targets:
+        outcome = service.scan(
+            target,
+            confirm=args.confirm,
+            config_path=args.config,
+            output_dir=output_dir,
+        )
+        if not outcome.success:
+            print(outcome.error or "Scanare eșuată / Scan failed", file=sys.stderr)
+            return 1
+        xml_path = Path(outcome.xml_path)
+        _write_lab_metadata(
+            xml_path,
+            targets=[target],
+            network=network,
+            duration_seconds=outcome.duration_seconds,
+        )
+        results.append({
+            "xml_path": str(xml_path),
+            "metadata_path": str(xml_path.with_suffix(".json")),
+            "duration_seconds": outcome.duration_seconds,
+        })
+    print(json.dumps({"label": args.label, "results": results}, ensure_ascii=False))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="netcheck")
     parser.add_argument("--config", type=Path, default=scanner._DEFAULT_LAB_CONFIG)
@@ -55,6 +104,13 @@ def main(argv: list[str] | None = None) -> int:
     scan.add_argument("target")
     scan.add_argument("--confirm", action="store_true")
     scan.add_argument("--output-dir", type=Path, default=None)
+    lab_run = commands.add_parser(
+        "lab-run",
+        help="Save a guarded BEFORE or AFTER laboratory scan and metadata",
+    )
+    lab_run.add_argument("--label", choices=("before", "after"), required=True)
+    lab_run.add_argument("targets", nargs="+")
+    lab_run.add_argument("--confirm", action="store_true")
     serve = commands.add_parser("serve", help="Serve local API on 127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--output-dir", type=Path, default=None)
@@ -80,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
                                    config_path=args.config, output_dir=args.output_dir)
             print(json.dumps(asdict(outcome), ensure_ascii=False))
             return 0 if outcome.success else 1
+        elif args.command == "lab-run":
+            return _lab_run(args)
         else:
             import uvicorn
             from netcheck.api import create_app

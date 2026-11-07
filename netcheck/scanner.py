@@ -469,7 +469,7 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
             ports = port_specification()
         except FileNotFoundError as exc:
             if "nmap lipsește" in str(exc).lower() and "not installed" in str(exc).lower():
-                return outcome(False, "nmap nu este instalat / nmap is not installed")
+                return ScanResult(output_path, False, "nmap nu este instalat / nmap is not installed")
             return outcome(False, str(exc))
         except (OSError, ValueError) as exc:
             return outcome(False, str(exc))
@@ -485,7 +485,7 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
         return outcome(False, "Scanarea a depășit 300 s; XML incomplet / Scan exceeded 300 s; incomplete XML")
     except OSError as exc:
         if isinstance(exc, FileNotFoundError):
-            return outcome(False, "nmap nu este instalat / nmap is not installed")
+            return ScanResult(output_path, False, "nmap nu este instalat / nmap is not installed")
         return outcome(False, _scan_error_message(str(exc), ""))
     if result.returncode != 0:
         error = _scan_error_message(result.stderr, result.stdout)

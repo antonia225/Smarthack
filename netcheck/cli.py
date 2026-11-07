@@ -1,11 +1,45 @@
-"""Local CLI: configure-lab, network, scan and serve."""
+"""Local CLI: configure-lab, network, scan, demo-refusals and serve."""
 import argparse
 from dataclasses import asdict
 import json
 from pathlib import Path
+import subprocess
 import sys
+from unittest.mock import patch
 
 from netcheck import scanner, service
+
+
+def _demo_refusals() -> int:
+    safe_network = "172.20.10.0/28"
+    cases = (
+        ("IP public / Public IP", "8.8.8.8", True),
+        ("Țintă Wi-Fi locație / Venue Wi-Fi target", "10.240.0.5", True),
+        ("Subnet Wi-Fi locație / Venue Wi-Fi subnet", "10.240.0.0/16", True),
+        ("Fără --confirm / Without --confirm", "172.20.10.3", False),
+    )
+    with patch("netcheck.scanner.subprocess.run") as process:
+        for label, target, confirm in cases:
+            try:
+                scanner.validate_scan_request(
+                    target, [safe_network], confirm=confirm,
+                )
+            except PermissionError as exc:
+                print(f"REFUZAT / REFUSED: {label} ({target}): {exc}")
+            else:
+                print(
+                    "EROARE / ERROR: refuzul a lipsit / refusal missing: "
+                    f"{label} ({target})"
+                )
+                return 1
+        if process.called:
+            print(
+                "EROARE / ERROR: subprocess a fost apelat / subprocess was called",
+                file=sys.stderr,
+            )
+            return 1
+    print("Confirmare: subprocess nu a fost apelat / subprocess was not called")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -13,9 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=scanner._DEFAULT_LAB_CONFIG)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("network", help="Detect IPv4 network without scanning")
-    configure = commands.add_parser("configure-lab", help="Explicitly authorize the connected lab")
-    configure.add_argument("--allow", action="append", required=True)
+    configure = commands.add_parser("configure-lab", help="Authorize the connected lab after confirmation")
+    configure.add_argument("--allow", action="append")
     configure.add_argument("--confirm", action="store_true")
+    commands.add_parser("demo-refusals", help="Demonstrate authorization refusals without Nmap")
     scan = commands.add_parser("scan")
     scan.add_argument("target")
     scan.add_argument("--confirm", action="store_true")
@@ -28,8 +63,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "network":
             result = asdict(scanner.detect_network())
         elif args.command == "configure-lab":
-            scanner.configure_lab_network(args.allow, confirm=args.confirm, config_path=args.config)
+            allowed = args.allow
+            if allowed is None:
+                proposal = scanner.detect_network()
+                print(
+                    "Propunere subnet detectat / Detected subnet proposal: "
+                    f"{proposal.subnet}"
+                )
+                allowed = [proposal.subnet]
+            scanner.configure_lab_network(allowed, confirm=args.confirm, config_path=args.config)
             result = {"configured": True, "config": str(args.config)}
+        elif args.command == "demo-refusals":
+            return _demo_refusals()
         elif args.command == "scan":
             outcome = service.scan(args.target, confirm=args.confirm,
                                    config_path=args.config, output_dir=args.output_dir)

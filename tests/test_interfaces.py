@@ -115,6 +115,29 @@ def test_cli_configure_requires_confirmation_and_persists(tmp_path):
         assert main(args + ['--confirm']) == 1
 
 
+def test_cli_configure_without_allow_proposes_detected_subnet(tmp_path, capsys):
+    config = tmp_path / 'lab.json'
+    with patch('netcheck.scanner.detect_network', return_value=LAB) as detect:
+        assert main(['--config', str(config), 'configure-lab']) == 2
+        assert not config.exists()
+        assert '172.20.10.0/28' in capsys.readouterr().out
+        assert main(['--config', str(config), 'configure-lab', '--confirm']) == 0
+    assert config.exists()
+    assert detect.call_count == 3
+
+
+def test_demo_refusals_never_calls_subprocess(capsys):
+    with patch('netcheck.scanner.subprocess.run') as process:
+        assert main(['demo-refusals']) == 0
+    output = capsys.readouterr().out
+    assert '8.8.8.8' in output
+    assert '10.240.0.5' in output
+    assert '10.240.0.0/16' in output
+    assert 'Confirmarea scanării este obligatorie' in output
+    assert 'subprocess nu a fost apelat' in output
+    process.assert_not_called()
+
+
 def test_read_only_network_routes(environment):
     assert environment[-1].get('/api/network').json()['subnet'] == LAB.subnet
     assert main(['network']) == 0

@@ -10,19 +10,17 @@ Starea pe cerințe și pașii rămași sunt în [starea proiectului](docs/projec
 
 ## Instalare
 
-Necesită Python 3.10+. Din rădăcina repository-ului, pe macOS/Linux:
+Necesită Python 3.10+. Din rădăcina repository-ului, instalați într-o singură
+comandă:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
+python scripts/setup.py
 ```
 
-Pe Windows, în PowerShell:
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-```
+Pe macOS, dacă executabilul este disponibil doar ca `python3`, folosiți
+`python3 scripts/setup.py`. În PowerShell pe Windows folosiți `py -3
+scripts/setup.py`. Scriptul creează `.venv`, instalează
+`requirements-dev.txt` și afișează dacă Nmap lipsește.
 
 `requirements-dev.txt` include dependențele aplicației și testele. Nmap se
 instalează separat, cu baza sa `nmap-services`; nu este necesar pentru
@@ -75,7 +73,7 @@ Comanda demonstrează refuzul unui IP public, al unei ținte dintr-o rețea Wi-F
 de locație (`10.240.0.5` și `10.240.0.0/16`) și al lipsei `--confirm`, apoi
 confirmă prin cod că `subprocess` nu a fost apelat.
 
-## Scanare și API local
+## Scanare live și API local
 
 ```sh
 python -m netcheck scan 172.20.10.3 --confirm
@@ -131,6 +129,41 @@ eliberată de sistem. Nu ștergeți fișierul în timpul execuției.
 `serve` ascultă exclusiv pe `127.0.0.1:8000`. API-ul este destinat utilizării
 locale, nu expunerii în rețea. Documentația interactivă este la `/docs`.
 Aceasta nu înlocuiește interfața pentru utilizator cerută de hackathon.
+
+### Laborator
+
+Pentru pornirea serviciilor și capturile BEFORE/AFTER urmați
+[instrucțiunile laboratorului](lab/README.md) și
+[serviciile laboratorului](lab/services/README.md). Variabilele
+`LAB_BIND_IP` și `LAB_DB_PASSWORD` sunt doar pentru `lab/services`; nu sunt
+setări citite de aplicația Netcheck și nu trebuie să conțină valori reale în
+repository.
+
+### Oprire
+
+Opriți `serve` sau o scanare CLI cu `Ctrl+C`. Pentru serviciile de laborator,
+urmați secțiunea de oprire din [lab/services/README.md](lab/services/README.md).
+Nu ștergeți XML-urile BEFORE/AFTER; ele sunt rezultate de experiment.
+
+### Analiză de fișiere
+
+**NEIMPLEMENTAT / NOT IMPLEMENTED:** comanda `analyze` și motorul de analiză
+offline sunt responsabilitatea colegei care lucrează la motor. Nu există încă
+o comandă suportată pentru analiză sau export de findings/scoruri.
+
+### Verificarea secretelor
+
+Scripturile pentru gitleaks verifică atât working tree, cât și istoricul Git:
+
+```sh
+sh scripts/macos/check-secrets.sh
+```
+
+```powershell
+.\scripts\windows\check-secrets.ps1
+```
+
+Rulați scriptul pe platforma respectivă după instalarea separată a gitleaks.
 
 - `GET /api/network`: detectare fără scanare.
 - `POST /api/scan`: `{"target":"172.20.10.3","confirm":true}`.

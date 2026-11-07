@@ -2,6 +2,9 @@ import importlib.util
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+import sys
+
 from netcheck.nmap_ports import port_specification
 
 
@@ -15,12 +18,14 @@ def load_wrapper():
     return module
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS symlink behavior; Windows requires symlink privileges")
 def test_wrapper_resolves_allowed_directory_symlink(tmp_path):
     wrapper = load_wrapper()
     real_dir = tmp_path / "real"
     real_dir.mkdir()
     link_dir = tmp_path / "link"
     link_dir.symlink_to(real_dir, target_is_directory=True)
+    wrapper.PORT_SPECIFICATION = "T:80,U:53"
     wrapper.ALLOWED_DIR = link_dir
     output = link_dir / ("a" * 32 + ".xml")
 

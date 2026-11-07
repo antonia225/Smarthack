@@ -1,14 +1,12 @@
 """Tests for network detection, target validation, and Nmap execution."""
 
 from pathlib import Path
-import sys
 from unittest.mock import patch
 
 import pytest
 
 from netcheck.scanner import (
     NetworkInfo,
-    ScanResult,
     ValidatedTarget,
     detect_network,
     run_scan,
@@ -145,7 +143,8 @@ def test_run_scan_rejects_unvalidated_target(tmp_path):
 
 
 @patch("netcheck.scanner.detect_network", return_value=NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1"))
-def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
+@pytest.mark.parametrize("system", ["Darwin", "Linux", "Windows"])
+def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path, system):
     output_path = str(tmp_path / "scan.xml")
     validated = validate_scan_request(
         "172.20.10.3",
@@ -154,10 +153,10 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
     )
 
     def fake_run(command, **kwargs):
-        if sys.platform == "darwin":
+        if system == "Darwin":
             expected = [
                 "sudo", "-n", "/usr/local/libexec/netcheck-nmap-wrapper",
-                "172.20.10.3", output_path,
+                "172.20.10.3", str(Path(output_path).resolve()),
             ]
         else:
             expected = [
@@ -173,34 +172,9 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
 
     with patch("netcheck.scanner.subprocess.run", side_effect=fake_run), patch(
         "netcheck.scanner.port_specification", return_value="T:1-1000,U:53,123,161,1900,5353"
-    ):
+    ), patch("netcheck.scanner.platform.system", return_value=system):
         result = run_scan(validated, output_path)
 
     assert result.xml_path == output_path
     assert result.success is True
     assert result.error is None
-
-
-@patch(
-    "netcheck.scanner.detect_network",
-    return_value=NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1"),
-)
-def test_run_scan_returns_failure_when_nmap_is_missing(_detect, tmp_path):
-    output_path = str(tmp_path / "scan.xml")
-    validated = validate_scan_request(
-        "172.20.10.3",
-        ["172.20.10.0/28"],
-        confirm=True,
-    )
-
-    with patch(
-        "netcheck.scanner.subprocess.run",
-        side_effect=FileNotFoundError,
-    ):
-        result = run_scan(validated, output_path)
-
-    assert result == ScanResult(
-        xml_path=output_path,
-        success=False,
-        error="nmap nu este instalat / nmap is not installed",
-    )

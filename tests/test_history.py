@@ -1,6 +1,9 @@
 """Tests for SQLite scan history."""
 
 from pathlib import Path
+import sqlite3
+
+import pytest
 
 from netcheck import history
 from netcheck.scoring import analyze_file
@@ -37,3 +40,21 @@ def test_delete_history(monkeypatch, tmp_path):
     history.delete_history()
 
     assert history.list_scans() == []
+
+
+def test_history_closes_connections_on_success_and_failure(monkeypatch, tmp_path):
+    connections = []
+    original = sqlite3.connect
+
+    def connect(*args, **kwargs):
+        connection = original(*args, **kwargs)
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(history.sqlite3, "connect", connect)
+    assert history.list_scans() == []
+    with pytest.raises(KeyError):
+        history.get_scan(999)
+    for connection in connections:
+        with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+            connection.execute("SELECT 1")

@@ -11,11 +11,6 @@ from netcheck import service
 from netcheck.scanner import ScanResult
 
 
-@pytest.fixture(autouse=True)
-def isolated_lock(tmp_path, monkeypatch):
-    monkeypatch.setattr(service, '_SCAN_LOCK_PATH', tmp_path / 'scan.lock')
-
-
 def test_concurrent_request_is_refused_before_validation(tmp_path):
     entered, release = Event(), Event()
 

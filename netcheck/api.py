@@ -6,7 +6,6 @@ from dataclasses import asdict
 from pathlib import Path
 import tempfile
 from typing import Any
-from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -18,14 +17,10 @@ from netcheck import history, scanner, service
 from netcheck.scoring import analyze_file
 
 
-run_scan = scanner.run_scan
-
-
 class ScanRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target: StrictStr
     confirm: StrictBool = False
-    allowed_networks: list[str] | None = None
 
 
 def _error_response(
@@ -44,14 +39,6 @@ def _error_response(
             },
         },
     )
-
-
-def _scan_output_path(output_dir: Path | None) -> tuple[Path, tempfile.TemporaryDirectory[str] | None]:
-    if output_dir is not None:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir / f"api-scan-{uuid4().hex}.xml", None
-    directory = tempfile.TemporaryDirectory(prefix="netcheck-scan-")
-    return Path(directory.name) / "scan.xml", directory
 
 
 def create_app(
@@ -117,43 +104,20 @@ def create_app(
     @application.post("/api/scan", response_model=None)
     def live_scan(request: ScanRequest) -> dict[str, Any] | JSONResponse:
         try:
-            if request.allowed_networks is not None:
-                validated = scanner.validate_scan_request(
-                    request.target,
-                    request.allowed_networks,
-                    request.confirm,
-                    config_path=config_path,
+            result = service.scan(
+                request.target,
+                confirm=request.confirm,
+                config_path=config_path,
+                output_dir=output_dir,
+            )
+            if not result.success:
+                return _error_response(
+                    "scan_failed",
+                    result.error or "Scanarea a eșuat.",
+                    result.error or "The scan failed.",
+                    502,
                 )
-                output_path, temporary_directory = _scan_output_path(output_dir)
-                try:
-                    result = run_scan(validated, str(output_path))
-                    analysis_path = output_path
-                    if not result.success:
-                        return _error_response(
-                            "scan_failed",
-                            result.error or "Scanarea a eșuată.",
-                            result.error or "The scan failed.",
-                            502,
-                        )
-                    analysis = analyze_file(analysis_path)
-                finally:
-                    if temporary_directory is not None:
-                        temporary_directory.cleanup()
-            else:
-                result = service.scan(
-                    request.target,
-                    confirm=request.confirm,
-                    config_path=config_path,
-                    output_dir=output_dir,
-                )
-                if not result.success:
-                    return _error_response(
-                        "scan_failed",
-                        result.error or "Scanarea a eșuată.",
-                        result.error or "The scan failed.",
-                        502,
-                    )
-                analysis = analyze_file(result.xml_path)
+            analysis = analyze_file(result.xml_path)
         except service.ScanBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except PermissionError as exc:

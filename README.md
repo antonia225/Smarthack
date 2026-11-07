@@ -212,7 +212,8 @@ request.
 ## Verification
 
 ```sh
-python -m pytest -q
+python -m pip install -r requirements-dev.txt
+python -m pytest -q -m "not native"
 ```
 
 Normal tests simulate Nmap and do not generate scan traffic. To read the
@@ -226,7 +227,13 @@ NETCHECK_NATIVE_TEST=1 python -m pytest tests/test_network_native.py -q
 The GitHub Actions matrix deliberately excludes tests marked `native`: hosted
 runners use virtual or changing network topologies and cannot certify the
 laboratory adapter. The deterministic suite runs on macOS, Windows, and Linux
-without scan traffic or services.
+without scan traffic or services. It needs no Nmap installation or administrator
+privileges; database and lock files are isolated in temporary directories.
+CI uses Linux/Python 3.10 and macOS + Windows/Python 3.13 instead of repeating
+all OS/Python combinations. Workflows run only on pull requests (including new
+commits) or manually via `workflow_dispatch`, never on `push`; direct pushes
+without a PR require a manual run. New runs cancel older runs for the same PR.
+Gitleaks is the single secret scanner, separate from the Python tests.
 
 Network detection has been verified on the laboratory Mac. Windows/Linux have
 backends and simulated tests; the CI workflow is configured, but each platform

@@ -94,11 +94,14 @@ def create_app(
         lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any]:
         content = await request.body()
-        safe_name = Path(filename).name or "scan.xml"
+        # The client name is display metadata, never a filesystem path. Handle
+        # both path separators regardless of the server's operating system.
+        display_name = filename.replace("\\", "/").rsplit("/", 1)[-1] or "scan.xml"
         with tempfile.TemporaryDirectory(prefix="netcheck-import-") as directory:
-            path = Path(directory) / safe_name
+            path = Path(directory) / "scan.xml"
             path.write_bytes(content)
             analysis = analyze_file(path)
+        analysis["file"] = display_name
         explained = attach_explanations(analysis, lang)
         scan_id = history.save_scan(analysis)
         return {"scan_id": scan_id, **explained}

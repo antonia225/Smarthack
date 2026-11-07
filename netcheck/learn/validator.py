@@ -26,12 +26,21 @@ def validate(answer: str, evidence_text: str, passages: Iterable[Passage]) -> bo
     except (OSError, ValueError):
         resources = []
     allowed += " " + " ".join(str(item.get("url", "")) for item in resources)
-    if not CITATION_RE.search(answer):
+    citations = CITATION_RE.findall(answer)
+    valid_citations = set(CITATION_RE.findall(evidence_text)) | {
+        f"[{passage.source_type}:{passage.id}]" for passage in passage_list
+    }
+    if not citations or any(citation not in valid_citations for citation in citations):
         return False
-    if any(match.group(0) not in allowed for pattern in (IP_RE, URL_RE, CVE_RE, PHONE_RE) for match in pattern.finditer(answer)):
-        return False
-    for match in PORT_RE.finditer(answer):
-        value = match.group(1)
-        if value not in allowed and match.group(0).strip().isdigit():
+    # A passage number in a valid citation is an identifier, not a claimed port.
+    answer_values = CITATION_RE.sub(" ", answer)
+    allowed += " " + " ".join(passage.url or "" for passage in passage_list)
+    for pattern in (IP_RE, URL_RE, CVE_RE, PHONE_RE):
+        permitted = {match.group(0).rstrip(".,;") for match in pattern.finditer(allowed)}
+        if any(match.group(0).rstrip(".,;") not in permitted for match in pattern.finditer(answer_values)):
+            return False
+    allowed_numbers = {match.group(1) for match in PORT_RE.finditer(allowed)}
+    for match in PORT_RE.finditer(answer_values):
+        if match.group(1) not in allowed_numbers:
             return False
     return True

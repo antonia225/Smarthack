@@ -108,3 +108,9 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible, summary:fo
 @media (max-width: 980px) { .workspace, .overview { grid-template-columns: 1fr; }.inspector { order: 2; } }
 @media (max-width: 680px) { .app { display: block; }.sidebar { position: static; min-height: auto; padding: 16px; }.sidebar nav { grid-template-columns: repeat(3, 1fr); }.nav-btn { justify-content: center; }.language { margin-top: 4px; }.page-head { align-items: start; flex-direction: column; }.severity-card ul { grid-template-columns: repeat(2, 1fr); }main { padding: 24px 16px 40px; }.score-card { align-items: start; flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* Visible boundaries and focus also apply to the chat field and links. */
+button, select, input { border-color: #788494; }
+:root { --line: #788494; }
+a:focus-visible, input:focus-visible { outline: 3px solid #1b65d8; outline-offset: 3px; }
+.button.primary:hover { background: #1b438f; color: #fff; }

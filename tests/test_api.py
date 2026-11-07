@@ -147,3 +147,40 @@ def test_catalog_preserves_empty_and_invalid_analysis(filename):
     scan_id = result.pop("scan_id")
     assert result == expected
     assert client.get(f"/api/scans/{scan_id}").json() == expected
+
+
+@pytest.mark.parametrize(('filename', 'display_name'), [
+    ('<unsafe>.xml', '<unsafe>.xml'),
+    ('CON.xml', 'CON.xml'),
+    ('report:before?.xml', 'report:before?.xml'),
+    ('x' * 260 + '.xml', 'x' * 260 + '.xml'),
+    (r'C:\uploads\report<unsafe>.xml', 'report<unsafe>.xml'),
+    ('../../uploads/before.xml', 'before.xml'),
+    ('', 'scan.xml'),
+])
+def test_import_client_filename_is_only_display_metadata(monkeypatch, filename, display_name):
+    original_write = Path.write_bytes
+    writes = []
+
+    def windows_compatible_write(path, content):
+        # Reproduce Windows filename restrictions even when CI runs on Unix.
+        invalid = '<>:"/\\|?*'
+        stem = path.name.split('.')[0].upper()
+        if (any(char in path.name for char in invalid) or len(path.name) > 255
+                or stem in {'CON', 'PRN', 'AUX', 'NUL'}):
+            raise OSError(22, 'Invalid argument', str(path))
+        writes.append(path)
+        return original_write(path, content)
+
+    monkeypatch.setattr(Path, 'write_bytes', windows_compatible_write)
+    client = TestClient(api.app)
+    response = client.post('/api/import', params={'filename': filename},
+                           content=(VALIDATION_DIR / 'V6a_before.xml').read_bytes())
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result['file'] == display_name
+    assert result['network_score'] == 60
+    assert writes and all(not path.exists() for path in writes)
+    saved = client.get(f"/api/scans/{result['scan_id']}").json()
+    assert saved['file'] == display_name

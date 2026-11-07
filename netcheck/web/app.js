@@ -56,8 +56,12 @@ function severityLabel(severity) {
   return text(severity, severity);
 }
 
+function localized(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value[state.lang] : value;
+}
+
 function findingTitle(finding) {
-  return finding.title || finding.code || text("vulnerabilities", "Vulnerability");
+  return localized(finding.title) || finding.code || text("vulnerabilities", "Vulnerability");
 }
 
 function maskMac(value) {
@@ -77,6 +81,8 @@ function announce(message, kind = "info") {
 
 function setLanguage(lang) {
   state.lang = lang;
+  state.chatMessages = [];
+  state.chatRequest = (state.chatRequest || 0) + 1;
   try { localStorage.setItem("netcheck-language", lang); } catch (error) { /* storage is optional */ }
   render();
 }
@@ -103,6 +109,7 @@ function applyStaticText() {
 function renderScore(scan) {
   const score = scan && scan.status === "ok" ? Number(scan.network_score) : 100;
   $("score-number").textContent = String(score);
+  $("score-label").textContent = text(score >= 70 ? "scoreGood" : score >= 50 ? "scoreMedium" : "scoreBad");
   $("score-ring").className = "ring score-" + (score >= 70 ? "good" : score >= 50 ? "medium" : "bad");
   $("score-ring").setAttribute("aria-label", (text("scoreTitle", "Network score") + ": " + score + " / 100"));
   const counts = Object.fromEntries(SEVERITIES.map((severity) => [severity, 0]));
@@ -132,7 +139,7 @@ function renderGraph(scan) {
   const height = 420;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-  svg.setAttribute("role", "img");
+  svg.setAttribute("role", "group");
   svg.setAttribute("aria-label", text("networkTitle", "Device map"));
   const center = devices.findIndex((device) => device.device_type === "router");
   const ordered = center >= 0 ? [devices[center], ...devices.filter((_, index) => index !== center)] : devices;
@@ -170,6 +177,13 @@ function renderGraph(scan) {
   });
   if (!devices.length) container.append(node("p", "muted", text("emptyText", "Import a scan to see devices.")));
   else container.append(svg);
+  const list = $("device-list"); list.replaceChildren();
+  devices.forEach((device) => {
+    const button = node("button", "button", device.ip + " · " + deviceType(device));
+    button.type = "button";
+    button.addEventListener("click", () => openDevice(device.ip));
+    list.append(button);
+  });
 }
 
 function renderInspector(scan) {
@@ -188,7 +202,7 @@ function renderInspector(scan) {
   const priority = node("article", "priority-card sev-" + first.severity);
   priority.append(node("span", "kicker", text("priority", "Most dangerous")));
   priority.append(node("h3", "", findingTitle(first)));
-  priority.append(node("p", "", (text("firstStep", "First step") + ": " + ((first.fix && first.fix[0]) || text("noAdvice", "No remediation step.")))));
+  priority.append(node("p", "", (text("firstStep", "First step") + ": " + ((first.fix && localized(first.fix)[0]) || text("noAdvice", "No remediation step.")))));
   priority.append(node("p", "muted", first.ip));
   panel.append(priority);
   const list = node("ul", "finding-list");
@@ -206,9 +220,10 @@ function renderInspector(scan) {
 function renderDeviceDetail(panel, scan, ip) {
   const device = deviceForIp(ip, scan);
   const back = node("button", "back-button", "‹ " + text("back", "Back"));
-  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); });
+  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); focusPanel(); });
   panel.append(back);
-  panel.append(node("h2", "", text("deviceDetails", "Device details")));
+  const heading = node("h2", "", text("deviceDetails", "Device details"));
+  heading.id = "panel-title"; panel.append(heading);
   if (!device) return;
   panel.append(node("p", "device-ip", device.ip));
   const details = node("dl", "device-facts");
@@ -221,10 +236,10 @@ function renderDeviceDetail(panel, scan, ip) {
   deviceFindings.forEach((finding) => {
     const article = node("article", "detail-finding sev-" + finding.severity);
     article.append(node("h4", "", findingTitle(finding)));
-    article.append(node("p", "", finding.explain || text("catalogMissing", "Explanation unavailable.")));
-    if (finding.fix && finding.fix.length) {
+    article.append(node("p", "", localized(finding.explain) || text("catalogMissing", "Explanation unavailable.")));
+    if (finding.fix && localized(finding.fix).length) {
       const steps = node("ol", "steps");
-      finding.fix.forEach((step) => steps.append(node("li", "", step)));
+      localized(finding.fix).forEach((step) => steps.append(node("li", "", step)));
       article.append(steps);
     }
     panel.append(article);
@@ -232,15 +247,16 @@ function renderDeviceDetail(panel, scan, ip) {
   if (!deviceFindings.length) panel.append(node("p", "muted", text("noDeviceFindings", "No findings for this device.")));
   const ask = node("button", "button primary");
   ask.type = "button"; ask.append(icon("i-shield")); ask.append(node("span", "", text("askAI", "Ask AI")));
-  ask.addEventListener("click", () => { state.panel = "chat"; render(); });
+  ask.addEventListener("click", () => { state.panel = "chat"; render(); focusPanel(); });
   panel.append(ask);
 }
 
 function renderChat(panel, scan) {
   const back = node("button", "back-button", "‹ " + text("back", "Back"));
-  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); });
+  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); focusPanel(); });
   panel.append(back);
-  panel.append(node("h2", "", text("chatTitle", "Explanations for you")));
+  const heading = node("h2", "", text("chatTitle", "Explanations for you"));
+  heading.id = "panel-title"; panel.append(heading);
   panel.append(node("p", "privacy-note", text("chatNotice", "AI is not connected yet. Local explanations remain available.")));
   const context = node("p", "context-chip");
   context.textContent = state.selectedIp ? text("device", "Device") + ": " + state.selectedIp : text("networkTitle", "Device map");
@@ -248,9 +264,10 @@ function renderChat(panel, scan) {
   const log = node("div", "chat-log");
   log.setAttribute("role", "log");
   log.setAttribute("aria-live", "polite");
+  const pending = state.chatMessages.some((message) => message.pending);
   state.chatMessages.forEach((message) => {
     const item = node("article", "chat-message " + message.role);
-    item.append(node("strong", "", message.role === "user" ? "Tu" : text("assistant", "Asistent")));
+    item.append(node("strong", "", message.role === "user" ? text("you") : text("assistant", "Asistent")));
     if (message.mode) {
       item.append(node("span", "chat-mode", message.mode === "ai"
         ? text("aiAnswer", "Asistent AI")
@@ -268,17 +285,18 @@ function renderChat(panel, scan) {
   const questions = node("div", "chat-questions");
   [text("chatQuestion", "What do the results mean?"), text("chatSteps", "Where do I start?")].forEach((question) => {
     const button = node("button", "button", question); button.type = "button";
+    button.disabled = pending;
     button.addEventListener("click", () => askLearning(scan, question));
     questions.append(button);
   });
   panel.append(questions);
   const form = node("form", "chat-form");
   const input = node("input");
-  input.type = "text"; input.required = true; input.maxLength = 500;
+  input.type = "text"; input.disabled = pending; input.required = true; input.maxLength = 500;
   input.placeholder = text("chatPlaceholder", "Ask about this scan");
   input.setAttribute("aria-label", text("chatPlaceholder", "Ask about this scan"));
   const submit = node("button", "button primary", text("send", "Send"));
-  submit.type = "submit";
+  submit.type = "submit"; submit.disabled = pending;
   form.append(input, submit);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -289,23 +307,26 @@ function renderChat(panel, scan) {
 
 async function askLearning(scan, question) {
   const value = question.trim();
-  if (!value || !scan) return;
+  if (!value || !scan || state.chatMessages.some((message) => message.pending)) return;
+  const requestId = state.chatRequest = (state.chatRequest || 0) + 1;
+  const scanId = scan.id, deviceIp = state.selectedIp, lang = state.lang;
   state.chatMessages.push({ role: "user", text: value });
-  state.chatMessages.push({ role: "assistant", text: text("loading", "Loading…") });
-  render();
+  state.chatMessages.push({ role: "assistant", pending: true, text: text("loading", "Loading…") });
+  render(); focusPanel();
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        scan_id: scan.id,
-        device_ip: state.selectedIp,
+        scan_id: scanId,
+        device_ip: deviceIp,
         question: value,
-        lang: state.lang
+        lang
       })
     });
     if (!response.ok) throw new Error("ask");
     const result = await response.json();
+    if (requestId !== state.chatRequest) return;
     state.chatMessages[state.chatMessages.length - 1] = {
       role: "assistant",
       text: result.answer,
@@ -313,13 +334,14 @@ async function askLearning(scan, question) {
       mode: result.mode
     };
   } catch (error) {
+    if (requestId !== state.chatRequest) return;
     state.chatMessages[state.chatMessages.length - 1] = {
       role: "assistant",
       text: text("chatError", "The assistant could not answer right now.")
     };
   }
   render();
-  focusPanel();
+  if (state.view === "home" && state.panel === "chat") focusPanel();
 }
 
 function renderHome() {
@@ -332,8 +354,9 @@ function renderHome() {
     selector.append(option);
   });
   selector.value = state.currentScanId == null ? "" : String(state.currentScanId);
-  $("home-content").hidden = !scan;
+  $("home-content").hidden = !scan || scan.status !== "ok";
   $("empty-state").hidden = Boolean(scan);
+  $("scan-error").hidden = !scan || scan.status === "ok";
   renderScore(scan); renderGraph(scan); renderInspector(scan);
 }
 
@@ -350,6 +373,48 @@ function renderHistory() {
     list.append(item);
   });
   renderChart();
+  renderComparisonPickers();
+}
+
+function renderComparisonPickers() {
+  const valid = state.scans.filter((scan) => scan.status === "ok");
+  ["cmp-before", "cmp-after"].forEach((id, index) => {
+    const select = $(id), previous = select.value;
+    select.replaceChildren();
+    valid.forEach((scan) => {
+      const option = node("option", "", scan.file + " (#" + scan.id + ")");
+      option.value = String(scan.id); select.append(option);
+    });
+    select.value = valid.some((scan) => String(scan.id) === previous)
+      ? previous : valid.length ? String(valid[index ? valid.length - 1 : 0].id) : "";
+  });
+  updateComparison();
+}
+
+async function updateComparison() {
+  const before = $("cmp-before").value, after = $("cmp-after").value;
+  const request = state.comparisonRequest = (state.comparisonRequest || 0) + 1;
+  const lang = state.lang, box = $("comparison");
+  box.replaceChildren();
+  if (!before || !after || before === after) {
+    box.append(node("p", "muted", text("compareNeed"))); return;
+  }
+  try {
+    const response = await fetch("/api/compare?a=" + before + "&b=" + after);
+    if (!response.ok) throw new Error("compare");
+    const result = await response.json();
+    if (request !== state.comparisonRequest || state.lang !== lang || state.view !== "history") return;
+    box.append(node("p", "", text("scoreChange").replace("{before}", result.score_before).replace("{after}", result.score_after)));
+    [["resolved", result.resolved_findings], ["added", result.new_findings]].forEach(([key, values]) => {
+      box.append(node("h3", "subheading", text(key)));
+      const list = node("ul");
+      values.forEach((finding) => list.append(node("li", "", finding.code + " · " + finding.ip + (finding.port ? ":" + finding.port : ""))));
+      if (!values.length) list.append(node("li", "", text("noChanges")));
+      box.append(list);
+    });
+  } catch (error) {
+    if (request === state.comparisonRequest && state.lang === lang) box.append(node("p", "", text("compareFailed")));
+  }
 }
 
 function renderChart() {
@@ -396,7 +461,7 @@ async function loadScans() {
     state.scans = await response.json();
     if (state.scans.length) state.currentScanId = state.scans[state.scans.length - 1].id;
     if (state.scans.length) {
-      const detail = await fetch("/api/scans/" + encodeURIComponent(state.currentScanId) + "?lang=" + state.lang);
+      const detail = await fetch("/api/scans/" + encodeURIComponent(state.currentScanId));
       if (detail.ok) state.scans[state.scans.length - 1] = { ...state.scans[state.scans.length - 1], ...(await detail.json()) };
     }
     render();
@@ -415,12 +480,14 @@ async function importFile(file) {
     announce(text("badFile", "Choose one XML file no larger than 10 MB."), "error"); return;
   }
   try {
-    const response = await fetch("/api/import?filename=" + encodeURIComponent(file.name) + "&lang=" + state.lang, {
+    const response = await fetch("/api/import?filename=" + encodeURIComponent(file.name), {
       method: "POST", headers: { "Content-Type": "application/xml" }, body: await file.text()
     });
     if (!response.ok) throw new Error("import");
     const result = await response.json();
     state.scans.push({ id: result.scan_id, ...result, scanned_at: new Date().toISOString() });
+    state.chatRequest = (state.chatRequest || 0) + 1;
+    state.chatMessages = []; state.selectedIp = null;
     state.currentScanId = result.scan_id; state.view = "home"; state.panel = "list";
     announce(text("imported", "The file was imported.")); render();
   } catch (error) {
@@ -429,17 +496,28 @@ async function importFile(file) {
 }
 
 function bindEvents() {
+  document.querySelectorAll('[data-action="import"]').forEach((button) => button.addEventListener("click", () => {
+    state.view = "import"; render(); $("btn-import").focus();
+  }));
+  ["cmp-before", "cmp-after"].forEach((id) => $(id).addEventListener("change", updateComparison));
   $("lang-ro").addEventListener("click", () => setLanguage("ro"));
   $("lang-en").addEventListener("click", () => setLanguage("en"));
   document.querySelectorAll(".nav-btn").forEach((button) => button.addEventListener("click", () => { state.view = button.dataset.view; render(); }));
   $("scan-select").addEventListener("change", async (event) => {
+    state.chatRequest = (state.chatRequest || 0) + 1;
+    state.chatMessages = []; state.panel = "list"; state.selectedIp = null;
     state.currentScanId = Number(event.target.value);
-    const response = await fetch("/api/scans/" + state.currentScanId + "?lang=" + state.lang);
-    if (response.ok) {
+    const scanId = state.currentScanId;
+    try {
+      const response = await fetch("/api/scans/" + scanId);
+      if (!response.ok) throw new Error("scan");
       const detail = await response.json();
-      state.scans = state.scans.map((scan) => scan.id === state.currentScanId ? { ...scan, ...detail } : scan);
+      state.scans = state.scans.map((scan) => scan.id === scanId ? { ...scan, ...detail } : scan);
+      if (state.currentScanId !== scanId) return;
+      render(); $("scan-select").focus();
+    } catch (error) {
+      announce(text("loadFailed"), "error");
     }
-    render();
   });
   $("btn-import").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", (event) => importFile(event.target.files[0]));
@@ -460,13 +538,15 @@ function bindEvents() {
     else announce(text("historyEmptyText", "History is empty."));
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.view === "home" && state.panel !== "list") {
-      state.panel = state.panel === "chat" ? "detail" : "list"; render(); focusPanel();
+    if (event.key === "Escape" && !$("confirm-dialog").open && state.view === "home" && state.panel !== "list") {
+      event.preventDefault();
+      state.panel = state.panel === "chat" && state.selectedIp ? "detail" : "list"; render(); focusPanel();
     }
   });
 }
 
 function openDevice(ip) {
+  state.chatRequest = (state.chatRequest || 0) + 1;
   state.selectedIp = ip; state.panel = "detail"; state.chatMessages = []; render(); focusPanel();
 }
 

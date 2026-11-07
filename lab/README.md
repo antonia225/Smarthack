@@ -139,10 +139,18 @@ scannerul trebuie conectat în prealabil la laboratorul dorit.
 
 `validate_scan_request(..., confirm=True)` fără allowlist explicit citește
 `lab/network.json`. Dacă fișierul lipsește sau este invalid, cererea este
-refuzată; rețeaua curentă nu devine automat autorizată.
+refuzată; rețeaua curentă nu devine automat autorizată la scanare.
 
-După verificarea manuală a conexiunii la laborator, configurați explicit
-CIDR-ul autorizat (valoarea de mai jos descrie doar sesiunea documentată):
+După verificarea manuală a conexiunii la laborator, `configure-lab` poate
+propune subnetul detectat, dar confirmarea explicită este obligatorie:
+
+```sh
+python -m netcheck configure-lab
+python -m netcheck configure-lab --confirm
+```
+
+Alternativ, configurați explicit CIDR-ul autorizat (valoarea de mai jos
+descrie doar sesiunea documentată):
 
 ```python
 from netcheck.scanner import configure_lab_network, validate_scan_request

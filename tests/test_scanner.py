@@ -1,6 +1,7 @@
 """Tests for network detection, target validation, and Nmap execution."""
 
 from pathlib import Path
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -152,10 +153,18 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
     )
 
     def fake_run(command, **kwargs):
-        expected = [
-            "sudo", "-n", "/usr/local/libexec/netcheck-nmap-wrapper",
-            "172.20.10.3", output_path,
-        ]
+        if sys.platform == "darwin":
+            expected = [
+                "sudo", "-n", "/usr/local/libexec/netcheck-nmap-wrapper",
+                "172.20.10.3", output_path,
+            ]
+        else:
+            expected = [
+                "nmap", "-n", "-sS", "-sU", "-sV", "--script", "http-title",
+                "--script-timeout", "30s", "-p",
+                "T:1-1000,U:53,123,161,1900,5353", "--max-rate", "100",
+                "-oX", output_path, "172.20.10.3",
+            ]
         assert command == expected
         assert kwargs == {"capture_output": True, "text": True, "timeout": 300}
         Path(output_path).write_text('<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>', encoding="utf-8")

@@ -42,18 +42,38 @@ python -m netcheck network
 python -m netcheck configure-lab --allow 172.20.10.0/28 --confirm
 ```
 
-Înlocuiți exemplul cu subnetul real, după verificarea faptului că aveți
-permisiunea de scanare. Detectarea IP nu dovedește proprietatea rețelei.
+`--allow` este opțional: fără el, CLI propune subnetul detectat, îl afișează,
+dar necesită în continuare `--confirm` explicit:
+
+```sh
+python -m netcheck configure-lab
+# Propunere subnet detectat / Detected subnet proposal: 172.20.10.0/28
+python -m netcheck configure-lab --confirm
+```
+
+Verificați propunerea și faptul că aveți permisiunea de scanare înainte de
+confirmare. Detectarea IP nu dovedește proprietatea rețelei.
 `configure-lab` salvează allowlist-ul și configurația rețelei în
 `lab/network.json`, exclus din Git, și refuză suprascrierea. Pentru o nouă
 configurație, eliminați deliberat fișierul vechi și reautorizați laboratorul.
 Opțiunea globală `--config CALE` se pune înaintea subcomenzii.
 
 Scanarea acceptă numai ținte IPv4/CIDR din intervalele private RFC1918,
-cu maximum 256 de adrese și incluse integral în allowlist și LAN-ul autorizat.
-Confirmarea este obligatorie. Schimbarea configurației rețelei provoacă refuz,
-inclusiv schimbarea IP-ului scannerului prin DHCP. Configurația curentă nu
-este autorizată automat. CLI și API folosesc aceeași funcție de serviciu.
+cu maximum 256 de adrese, incluse integral în allowlist și LAN-ul autorizat.
+Sunt refuzate IP-urile publice, țintele din afara allowlist-ului și subneturile
+mai mari decât `/24`; confirmarea este obligatorie. Schimbarea configurației
+rețelei provoacă refuz, inclusiv schimbarea IP-ului scannerului prin DHCP.
+CLI și API folosesc aceeași funcție de serviciu.
+
+Pentru o demonstrație offline a refuzurilor, fără Nmap:
+
+```sh
+python -m netcheck demo-refusals
+```
+
+Comanda demonstrează refuzul unui IP public, al unei ținte dintr-o rețea Wi-Fi
+de locație (`10.240.0.5` și `10.240.0.0/16`) și al lipsei `--confirm`, apoi
+confirmă prin cod că `subprocess` nu a fost apelat.
 
 ## Scanare și API local
 

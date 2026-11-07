@@ -1,6 +1,8 @@
 """CLI/HTTP integration through real guardrails, with no scan traffic."""
 from pathlib import Path
+import platform
 import subprocess
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -18,14 +20,28 @@ VENUE = NetworkInfo('en0', '192.168.1.2', 24, '192.168.1.0/24', '192.168.1.1')
 def environment(tmp_path):
     config = tmp_path / 'lab.json'
     output = tmp_path / 'scans'
+    host_system = platform.system()
     with patch('netcheck.scanner.detect_network', return_value=LAB) as detect, patch(
         'netcheck.scanner.subprocess.run'
-    ) as process, patch('netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'):
+    ) as process, patch(
+        'netcheck.scanner.platform.system', return_value=host_system
+    ), patch(
+        'netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'
+    ):
         configure_lab_network([LAB.subnet], confirm=True, config_path=config)
         def fake_scan(command, **kwargs):
-            assert command[0:2] == ['sudo', '-n']
-            assert command[3] == '172.20.10.3'
-            Path(command[4]).write_text('<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>')
+            if sys.platform == 'darwin':
+                assert command[0:2] == ['sudo', '-n']
+                output_path = command[4]
+                assert command[3] == '172.20.10.3'
+            else:
+                assert command[0] == 'nmap'
+                output_index = command.index('-oX') + 1
+                output_path = command[output_index]
+                assert command[-1] == '172.20.10.3'
+            Path(output_path).write_text(
+                '<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>'
+            )
             return subprocess.CompletedProcess(command, 0, '', '')
         process.side_effect = fake_scan
         with TestClient(create_app(config_path=config, output_dir=output), base_url="http://127.0.0.1") as client:
@@ -113,6 +129,29 @@ def test_cli_configure_requires_confirmation_and_persists(tmp_path):
         assert main(args + ['--confirm']) == 0
         assert config.exists()
         assert main(args + ['--confirm']) == 1
+
+
+def test_cli_configure_without_allow_proposes_detected_subnet(tmp_path, capsys):
+    config = tmp_path / 'lab.json'
+    with patch('netcheck.scanner.detect_network', return_value=LAB) as detect:
+        assert main(['--config', str(config), 'configure-lab']) == 2
+        assert not config.exists()
+        assert '172.20.10.0/28' in capsys.readouterr().out
+        assert main(['--config', str(config), 'configure-lab', '--confirm']) == 0
+    assert config.exists()
+    assert detect.call_count == 3
+
+
+def test_demo_refusals_never_calls_subprocess(capsys):
+    with patch('netcheck.scanner.subprocess.run') as process:
+        assert main(['demo-refusals']) == 0
+    output = capsys.readouterr().out
+    assert '8.8.8.8' in output
+    assert '10.240.0.5' in output
+    assert '10.240.0.0/16' in output
+    assert 'Confirmarea scanării este obligatorie' in output
+    assert 'subprocess nu a fost apelat' in output
+    process.assert_not_called()
 
 
 def test_read_only_network_routes(environment):

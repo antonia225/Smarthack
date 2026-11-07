@@ -1,0 +1,717 @@
+[
+  {
+    "id": "telnet",
+    "title": "Telnet",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Telnet",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Telnet; see source page history",
+    "language": "en",
+    "codes": [
+      "TELNET_OPEN"
+    ],
+    "keywords_en": [
+      "telnet",
+      "unencrypted remote login"
+    ],
+    "keywords_ro": [
+      "telnet",
+      "autentificare la distanță",
+      "text clar"
+    ]
+  },
+  {
+    "id": "rdp",
+    "title": "Remote Desktop Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Remote_Desktop_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Remote Desktop Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "RDP_EXPOSED"
+    ],
+    "keywords_en": [
+      "rdp",
+      "remote desktop"
+    ],
+    "keywords_ro": [
+      "rdp",
+      "desktop la distanță",
+      "acces de la distanță"
+    ]
+  },
+  {
+    "id": "vnc",
+    "title": "Virtual Network Computing",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Virtual_Network_Computing",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Virtual Network Computing; see source page history",
+    "language": "en",
+    "codes": [
+      "VNC_EXPOSED"
+    ],
+    "keywords_en": [
+      "vnc",
+      "virtual network computing"
+    ],
+    "keywords_ro": [
+      "vnc",
+      "control ecran",
+      "partajare ecran"
+    ]
+  },
+  {
+    "id": "database-server",
+    "title": "Database server",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Database_server",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Database server; see source page history",
+    "language": "en",
+    "codes": [
+      "DB_EXPOSED"
+    ],
+    "keywords_en": [
+      "database server",
+      "mysql",
+      "postgresql",
+      "redis",
+      "mongodb"
+    ],
+    "keywords_ro": [
+      "bază de date",
+      "baze de date",
+      "server de date"
+    ]
+  },
+  {
+    "id": "rtsp",
+    "title": "Real Time Streaming Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Real_Time_Streaming_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Real Time Streaming Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "CAMERA_STREAM_EXPOSED"
+    ],
+    "keywords_en": [
+      "rtsp",
+      "camera stream",
+      "video streaming"
+    ],
+    "keywords_ro": [
+      "rtsp",
+      "cameră video",
+      "flux video",
+      "camere"
+    ]
+  },
+  {
+    "id": "ftp",
+    "title": "File Transfer Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/File_Transfer_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, File Transfer Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "FTP_CLEARTEXT"
+    ],
+    "keywords_en": [
+      "ftp",
+      "file transfer"
+    ],
+    "keywords_ro": [
+      "ftp",
+      "transfer fișiere",
+      "parole necriptate"
+    ]
+  },
+  {
+    "id": "http",
+    "title": "HTTP",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/HTTP",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, HTTP; see source page history",
+    "language": "en",
+    "codes": [
+      "HTTP_ADMIN_CLEARTEXT"
+    ],
+    "keywords_en": [
+      "http",
+      "cleartext administration"
+    ],
+    "keywords_ro": [
+      "http",
+      "administrare necriptată",
+      "panou administrare"
+    ]
+  },
+  {
+    "id": "smb",
+    "title": "Server Message Block",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Server_Message_Block",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Server Message Block; see source page history",
+    "language": "en",
+    "codes": [
+      "SMB_EXPOSED"
+    ],
+    "keywords_en": [
+      "smb",
+      "server message block",
+      "file sharing"
+    ],
+    "keywords_ro": [
+      "smb",
+      "partajare fișiere",
+      "foldere partajate"
+    ]
+  },
+  {
+    "id": "mqtt",
+    "title": "MQTT",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/MQTT",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, MQTT; see source page history",
+    "language": "en",
+    "codes": [
+      "MQTT_EXPOSED"
+    ],
+    "keywords_en": [
+      "mqtt",
+      "message broker",
+      "publish subscribe"
+    ],
+    "keywords_ro": [
+      "mqtt",
+      "broker mesaje",
+      "publicare abonare"
+    ]
+  },
+  {
+    "id": "upnp",
+    "title": "Universal Plug and Play",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Universal_Plug_and_Play",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Universal Plug and Play; see source page history",
+    "language": "en",
+    "codes": [
+      "UPNP_EXPOSED"
+    ],
+    "keywords_en": [
+      "upnp",
+      "universal plug and play"
+    ],
+    "keywords_ro": [
+      "upnp",
+      "descoperire automată",
+      "deschidere automată porturi"
+    ]
+  },
+  {
+    "id": "snmp",
+    "title": "Simple Network Management Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Simple_Network_Management_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Simple Network Management Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "SNMP_EXPOSED"
+    ],
+    "keywords_en": [
+      "snmp",
+      "network management",
+      "community string"
+    ],
+    "keywords_ro": [
+      "snmp",
+      "management rețea",
+      "șir comunitate"
+    ]
+  },
+  {
+    "id": "software-maintenance",
+    "title": "Software maintenance",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Software_maintenance",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Software maintenance; see source page history",
+    "language": "en",
+    "codes": [
+      "OUTDATED_SERVICE"
+    ],
+    "keywords_en": [
+      "software maintenance",
+      "outdated service",
+      "software update"
+    ],
+    "keywords_ro": [
+      "serviciu învechit",
+      "actualizare software",
+      "mentenanță software"
+    ]
+  },
+  {
+    "id": "jetdirect",
+    "title": "JetDirect",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/JetDirect",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, JetDirect; see source page history",
+    "language": "en",
+    "codes": [
+      "PRINTER_RAW_EXPOSED"
+    ],
+    "keywords_en": [
+      "jetdirect",
+      "raw printing",
+      "printer"
+    ],
+    "keywords_ro": [
+      "jetdirect",
+      "imprimare brută",
+      "imprimantă"
+    ]
+  },
+  {
+    "id": "ssh",
+    "title": "Secure Shell",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Secure_Shell",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Secure Shell; see source page history",
+    "language": "en",
+    "codes": [
+      "SSH_OPEN"
+    ],
+    "keywords_en": [
+      "ssh",
+      "secure shell",
+      "encrypted remote login"
+    ],
+    "keywords_ro": [
+      "ssh",
+      "terminal securizat",
+      "conexiune criptată"
+    ]
+  },
+  {
+    "id": "device-fingerprint",
+    "title": "Device fingerprint",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Device_fingerprint",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Device fingerprint; see source page history",
+    "language": "en",
+    "codes": [
+      "UNKNOWN_DEVICE"
+    ],
+    "keywords_en": [
+      "device fingerprint",
+      "unknown device",
+      "identification"
+    ],
+    "keywords_ro": [
+      "amprentă dispozitiv",
+      "dispozitiv necunoscut",
+      "identificare dispozitiv"
+    ]
+  },
+  {
+    "id": "ip-address",
+    "title": "IP address",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/IP_address",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, IP address; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "ip address",
+      "internet protocol address"
+    ],
+    "keywords_ro": [
+      "adresă ip",
+      "adrese ip"
+    ]
+  },
+  {
+    "id": "subnetwork",
+    "title": "Subnetwork",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Subnetwork",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Subnetwork; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "subnetwork",
+      "subnet",
+      "cidr",
+      "subnet mask"
+    ],
+    "keywords_ro": [
+      "subrețea",
+      "mască de rețea",
+      "prefix cidr"
+    ]
+  },
+  {
+    "id": "private-network",
+    "title": "Private network",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Private_network",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Private network; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "private network",
+      "private address",
+      "rfc1918"
+    ],
+    "keywords_ro": [
+      "rețea privată",
+      "adrese private",
+      "rfc1918"
+    ]
+  },
+  {
+    "id": "port",
+    "title": "Port (computer networking)",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Port_(computer_networking)",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Port (computer networking); see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "port",
+      "network port",
+      "service endpoint"
+    ],
+    "keywords_ro": [
+      "port",
+      "porturi",
+      "punct de comunicație"
+    ]
+  },
+  {
+    "id": "tcp",
+    "title": "Transmission Control Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Transmission_Control_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Transmission Control Protocol; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "tcp",
+      "transmission control protocol",
+      "reliable transport"
+    ],
+    "keywords_ro": [
+      "tcp",
+      "transport fiabil",
+      "controlul transmisiei"
+    ]
+  },
+  {
+    "id": "udp",
+    "title": "User Datagram Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/User_Datagram_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, User Datagram Protocol; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "udp",
+      "user datagram protocol",
+      "datagram"
+    ],
+    "keywords_ro": [
+      "udp",
+      "datagramă",
+      "datagrame"
+    ]
+  },
+  {
+    "id": "router",
+    "title": "Router (computing)",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Router_(computing)",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Router (computing); see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "router",
+      "routing",
+      "packet forwarding"
+    ],
+    "keywords_ro": [
+      "router",
+      "rutare",
+      "ruter"
+    ]
+  },
+  {
+    "id": "gateway",
+    "title": "Gateway (telecommunications)",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Gateway_(telecommunications)",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Gateway (telecommunications); see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "gateway",
+      "default gateway"
+    ],
+    "keywords_ro": [
+      "gateway",
+      "poartă implicită",
+      "poartă de acces"
+    ]
+  },
+  {
+    "id": "firewall",
+    "title": "Firewall (computing)",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Firewall_(computing)",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Firewall (computing); see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "firewall",
+      "packet filtering"
+    ],
+    "keywords_ro": [
+      "firewall",
+      "filtrare pachete",
+      "paravan de protecție"
+    ]
+  },
+  {
+    "id": "wpa",
+    "title": "Wi-Fi Protected Access",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Wi-Fi_Protected_Access",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Wi-Fi Protected Access; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "wpa",
+      "wpa2",
+      "wpa3",
+      "wifi encryption"
+    ],
+    "keywords_ro": [
+      "wpa",
+      "wpa2",
+      "wpa3",
+      "securitate wifi",
+      "criptare wireless"
+    ]
+  },
+  {
+    "id": "nat",
+    "title": "Network address translation",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Network_address_translation",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Network address translation; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "nat",
+      "network address translation"
+    ],
+    "keywords_ro": [
+      "nat",
+      "translatare adrese",
+      "traducere adrese"
+    ]
+  },
+  {
+    "id": "mdns",
+    "title": "Multicast DNS",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Multicast_DNS",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Multicast DNS; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "mdns",
+      "multicast dns",
+      "local name resolution"
+    ],
+    "keywords_ro": [
+      "mdns",
+      "rezolvare nume locale",
+      "dns multicast"
+    ]
+  },
+  {
+    "id": "mdn-http",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview",
+    "license": "CC-BY-SA-2.5-or-later",
+    "attribution": "MDN Web Docs contributors",
+    "language": "en",
+    "content_start": "HTTP is a protocol",
+    "kind": "html",
+    "title": "Overview of HTTP",
+    "codes": [
+      "HTTP_ADMIN_CLEARTEXT"
+    ],
+    "keywords_en": [
+      "http",
+      "web",
+      "tls",
+      "security"
+    ],
+    "keywords_ro": [
+      "http",
+      "protocol web",
+      "cerere răspuns"
+    ]
+  },
+  {
+    "id": "rfc1918",
+    "url": "https://www.rfc-editor.org/rfc/rfc1918",
+    "license": "RFC 1918 original copyright/permissions notice (1996; predates RFC 5378)",
+    "attribution": "IETF",
+    "language": "en",
+    "content_start": "This document describes address allocation",
+    "kind": "html",
+    "title": "RFC 1918 — Address Allocation for Private Internets",
+    "codes": [],
+    "keywords_en": [
+      "private-addresses",
+      "network"
+    ],
+    "keywords_ro": [
+      "adrese private",
+      "rețea privată",
+      "rfc 1918"
+    ],
+    "revision_hint": "RFC1918 (immutable RFC text; HTTP representation hashed)"
+  },
+  {
+    "id": "cisa-secure-iot",
+    "url": "https://www.cisa.gov/resources-tools/resources/internet-things-iot-acquisition-guidance-document",
+    "license": "U.S. Government work; verify page terms when retrieving",
+    "attribution": "Cybersecurity and Infrastructure Security Agency",
+    "language": "en",
+    "content_start": "Internet of Things (IoT) Acquisition Guidance Document",
+    "kind": "html",
+    "title": "Internet of Things (IoT) Acquisition Guidance Document",
+    "codes": [],
+    "keywords_en": [
+      "iot",
+      "security",
+      "updates"
+    ],
+    "keywords_ro": [
+      "securitate iot",
+      "achiziție dispozitive",
+      "riscuri iot"
+    ]
+  },
+  {
+    "id": "nist-iot-baseline",
+    "url": "https://csrc.nist.gov/pubs/ir/8259/a/final",
+    "license": "U.S. Government work; verify page terms when retrieving",
+    "attribution": "National Institute of Standards and Technology",
+    "language": "en",
+    "content_start": "Device cybersecurity capabilities are",
+    "kind": "html",
+    "title": "NIST IR 8259A — IoT Device Cybersecurity Capability Core Baseline",
+    "codes": [],
+    "keywords_en": [
+      "iot",
+      "security",
+      "updates"
+    ],
+    "keywords_ro": [
+      "securitate dispozitive",
+      "capabilități iot",
+      "configurare sigură"
+    ]
+  },
+  {
+    "id": "owasp-iot",
+    "url": "https://owasp.org/www-project-internet-of-things/",
+    "license": "CC-BY-SA 4.0",
+    "attribution": "OWASP Foundation",
+    "language": "en",
+    "kind": "html",
+    "title": "OWASP Internet of Things",
+    "codes": [],
+    "keywords_en": [
+      "iot",
+      "passwords",
+      "services"
+    ],
+    "keywords_ro": [
+      "securitate iot",
+      "parole implicite",
+      "servicii nesigure"
+    ]
+  },
+  {
+    "id": "rfc8446",
+    "url": "https://www.rfc-editor.org/rfc/rfc8446",
+    "license": "IETF Trust Legal Provisions (RFC 5378)",
+    "attribution": "IETF",
+    "language": "en",
+    "content_start": "This document specifies version 1.3",
+    "kind": "html",
+    "title": "RFC 8446 — TLS 1.3",
+    "codes": [],
+    "keywords_en": [
+      "tls",
+      "encryption",
+      "security"
+    ],
+    "keywords_ro": [
+      "tls",
+      "criptare",
+      "securitatea transportului"
+    ],
+    "revision_hint": "RFC8446 (immutable RFC text; HTTP representation hashed)"
+  },
+  {
+    "id": "owasp-iot-testing",
+    "title": "OWASP IoT Security Testing Guide",
+    "kind": "html",
+    "url": "https://owasp.org/www-project-iot-security-testing-guide/",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "OWASP Foundation and IoT Project contributors",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "iot security testing",
+      "testing framework",
+      "test scope"
+    ],
+    "keywords_ro": [
+      "testare securitate iot",
+      "cadru de testare",
+      "scopul testării"
+    ]
+  }
+]

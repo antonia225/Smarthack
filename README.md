@@ -178,10 +178,37 @@ two scans, and history deletion. The local server also serves the web
 interface from `netcheck/web/`, which displays the score, devices, findings,
 remediation steps, and history.
 
-### Secret Scanning
+### Learning Mode
 
-The gitleaks scripts check both the working tree and Git history:
-#### Secret verification (live check 7)
+Learning Mode answers questions about a saved scan from the local catalog and
+the allowlisted corpus in `knowledge/sources.json`. It pseudonymizes devices
+before an optional provider request and always falls back to local
+documentation when no `NETCHECK_LLM_API_KEY` and `NETCHECK_LLM_MODEL` are
+configured. Build the corpus with `python3 scripts/build_knowledge.py` when
+internet access is available; the command uses only the Python standard
+library. The [Phase 2a corpus](knowledge/README.md) contains 34 downloaded documents and
+642 attributed passages, revision metadata and a deterministic bilingual BM25
+index. Rebuild locally with `python scripts/build_knowledge.py --offline`.
+The chat endpoint is `POST /api/ask`; architecture and limitations
+are documented in [`docs/learning-mode.md`](docs/learning-mode.md).
+
+The server reads process environment variables; it does not automatically load
+`.env`. See [`.env.example`](.env.example). Both key and model enable external
+requests, including the free-text question, IPs, services and pseudonymized
+scan evidence. A missing downloaded corpus does not disable the provider.
+
+The [verification record and exact demonstration steps](docs/learning-mode.md#verificare--8-noiembrie-2026)
+distinguish offline tests, a successful 34-document corpus build, pending
+browser checks and a live LLM call. Full RO/EN coverage and AA compliance are not yet demonstrated.
+
+### IT provider report
+
+`GET /api/report?a=<id>` returns a self-contained printable HTML report.
+`GET /api/report?a=<before>&b=<after>` also includes the score change and
+findings resolved between scans. The report excludes hostnames and contains
+only masked MAC addresses.
+
+### Secret Scanning
 
 The gitleaks scripts check both the working tree and Git history:
 
@@ -246,3 +273,18 @@ findings, scoring, history, and API endpoints.
 Laboratory documentation and the preliminary HTTP capture are available in
 [lab/README.md](lab/README.md). For remaining work, see the
 [project status](docs/project-status.md).
+
+### Finding explanations (RO/EN)
+
+`netcheck/catalog.json` contains the 15 local explanations and remediation
+lists. The catalog is validated and read once per process; restart the server
+after editing it. Scan findings, severity and scores still come only from the
+rule engine.
+
+`POST /api/import`, `POST /api/scan`, and `GET /api/scans/{id}` attach `title`,
+`explain`, and `fix` to each finding. Without `lang`, each field contains
+`ro` and `en`; with `?lang=ro` or `?lang=en`, titles and explanations are
+strings and `fix` is a list of steps. Other language values return HTTP 422.
+The stored history remains the engine model, so existing scans also receive
+the catalog explanations when retrieved. A missing or invalid catalog returns
+HTTP 503 with a Romanian/English error, without saving a partial import.

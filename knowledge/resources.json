@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cloudflare-learning",
+    "title": "Cloudflare Learning Center",
+    "url": "https://www.cloudflare.com/learning/",
+    "note": "Link only; no text is copied into the corpus."
+  },
+  {
+    "id": "professor-messer",
+    "title": "Professor Messer",
+    "url": "https://www.professormesser.com/",
+    "note": "Link only; no text is copied into the corpus."
+  },
+  {
+    "id": "bitdefender",
+    "title": "Bitdefender Resource Center",
+    "url": "https://www.bitdefender.com/en-us/consumer/",
+    "note": "Link only; no text is copied into the corpus."
+  }
+]

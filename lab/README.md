@@ -81,6 +81,101 @@ Identificatorii Laptop 1–3 sunt etichetele echipei, nu hostname-uri detectate.
 | Laptop 3 | macOS | Participant; rol suplimentar nespecificat | `172.20.10.4` | De verificat | De verificat |
 
 Laptop scanner ales: **Laptop 1 (macOS)**.
+
+### Detectarea automată pe scanner
+
+Verificare nativă efectuată la 7 noiembrie 2026 pe laptopul macOS din
+workspace, prin `detect_network()`, fără executarea unei scanări:
+
+```python
+NetworkInfo(interface='en0', ip='172.20.10.2', prefix_length=28,
+            subnet='172.20.10.0/28', gateway='172.20.10.1')
+```
+
+Rezultatul corespunde configurației citite prin `ifconfig -a` (mască
+`0xfffffff0`) și `netstat -rn -f inet` (gateway implicit pe `en0`).
+Prefixul și subnetul sunt calculate din masca reală, nu din tipul hotspot-ului.
+Detectarea este implementată pentru **macOS, Windows și Linux**, cu același
+contract `detect_network() -> NetworkInfo` și selecție automată a backendului.
+
+| Sistem | Cerințe pentru detectare |
+| --- | --- |
+| macOS | Utilitarele native `/sbin/ifconfig` și `/usr/sbin/netstat` |
+| Windows | Windows PowerShell, modulele NetTCPIP și NetAdapter |
+| Linux | `iproute2` cu suport JSON și `/sys/class/net` disponibil |
+
+Python minim: 3.10. Nmap nu este necesar pentru detectare. Windows folosește
+[Get-NetIPAddress](https://learn.microsoft.com/powershell/module/nettcpip/get-netipaddress)
+și export JSON; Linux folosește
+[ip -j](https://man7.org/linux/man-pages/man8/ip.8.html), evitând parsarea
+tabelelor localizate. Alte sisteme (de exemplu BSD) produc o eroare explicită.
+WSL, containerele și mașinile virtuale nu sunt echivalente cu accesul direct
+la hotspot: interfețele virtuale pot fi refuzate intenționat.
+
+Platforma verificată pe laptopul laboratorului este **macOS**. Workflow-ul
+`.github/workflows/network-platforms.yml` configurează teste pe macOS,
+Windows și Ubuntu, cu Python 3.10 și 3.13. Include teste simulate și un test
+nativ pentru citirea/parsarea configurației, fără scanare. Runner-ele cu
+rețele ambigue pot fi refuzate în mod valid; erorile comenzilor sau datele
+native neinterpretabile fac testul să eșueze. Configurarea workflow-ului nu
+înseamnă că acesta a fost deja executat. Verificarea reușită pe laptopuri
+Windows/Linux conectate la laborator rămâne necesară pentru demonstrație.
+
+Reverificare din rădăcina repository-ului, fără scanare:
+
+```sh
+.venv/bin/python -c 'from netcheck.scanner import detect_network; print(detect_network())'
+```
+
+Funcția ridică `NetworkDetectionError` la lipsa conexiunii/gateway-ului,
+mai multe adrese sau interfețe LAN active, VPN IPv4/interfețe virtuale ori
+rute ambigue sau invalide. Nu alege interfața după ordinea enumerării sau
+metrică. Loopback, interfețele LAN inactive și tunelurile exclusiv IPv6
+sunt excluse din selecția IPv4. Apelantul trebuie să oprească operația la
+eroare. Detectarea nu execută Nmap și nu confirmă identitatea hotspot-ului;
+scannerul trebuie conectat în prealabil la laboratorul dorit.
+
+### Autorizarea persistentă a laboratorului
+
+`validate_scan_request(..., confirm=True)` fără allowlist explicit citește
+`lab/network.json`. Dacă fișierul lipsește sau este invalid, cererea este
+refuzată; rețeaua curentă nu devine automat autorizată.
+
+După verificarea manuală a conexiunii la laborator, configurați explicit
+CIDR-ul autorizat (valoarea de mai jos descrie doar sesiunea documentată):
+
+```python
+from netcheck.scanner import configure_lab_network, validate_scan_request
+
+configure_lab_network(["172.20.10.0/28"], confirm=True)
+validated = validate_scan_request("172.20.10.3", confirm=True)
+```
+
+Configurarea salvează allowlist-ul și interfața, IPv4, prefixul, subnetul,
+gateway-ul detectate; nu suprascrie o configurare existentă. Fișierul este
+local și exclus din Git. Pentru alt laborator, eliminați deliberat fișierul
+vechi și autorizați noua configurație. Parametrul `config_path` permite o
+altă locație. Transmiterea unui `allowed_networks` explicit reprezintă o
+autorizare pentru cererea respectivă, legată de rețeaua curentă.
+
+Țintele și allowlist-ul trebuie să fie integral în intervalele RFC1918;
+loopback, link-local, multicast, adresele rezervate și publice sunt refuzate.
+Ținta validată și rețeaua asociată sunt imuabile, allowlist-ul este un tuple,
+iar semnătura internă leagă toate valorile de validarea din procesul curent.
+Înainte de lansare se reverifică integritatea, politica și rețeaua. Orice
+schimbare a configurației salvate a rețelei, inclusiv IP-ul local, cere
+reautorizare. Obiectul validat nu se reutilizează între procese.
+
+Aceste verificări nu autentifică hotspot-ul: două rețele cu exact aceiași
+parametri IP nu pot fi distinse astfel. Nici modificările de rutare după
+ultima verificare nu pot fi prevenite printr-o simplă verificare în Python.
+Codul executat în același proces și fișierul de autorizare sunt de încredere.
+CLI și API sunt conectate la aceeași validare prin `netcheck.service.scan`.
+**Taskul 4 este implementat și verificat prin teste automate cu scanări
+simulate.** Instrucțiunile CLI/API și checklist-ul sunt în [README](../README.md).
+
+### Contextul celorlalte laptopuri
+
 Laptop care găzduiește HTTP: **Laptop 2 (Windows)**.
 Gateway raportat: **172.20.10.1**.
 Aceste adrese descriu sesiunea comunicată și trebuie reverificate la reluare.

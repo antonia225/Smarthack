@@ -1,6 +1,12 @@
 """Check the five Task 2 catalog rules in existing XML; never edit captures."""
 import sys
+from pathlib import Path
+from ipaddress import IPv4Address
 import xml.etree.ElementTree as ET
+from defusedxml.common import DefusedXmlException
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from netcheck.scan_xml import read_completed_scan
 
 EXPECTED = {
     'HTTP_ADMIN_CLEARTEXT', 'DB_EXPOSED', 'MQTT_EXPOSED',
@@ -10,14 +16,11 @@ EXPECTED = {
 def check(paths):
     found = set()
     for filename in paths:
-        root = ET.parse(filename).getroot()
-        finished = root.find('runstats/finished')
-        if root.tag != 'nmaprun' or finished is None or finished.get('exit') != 'success':
-            raise ValueError(f'Scanare incompleta: {filename}')
+        root = read_completed_scan(filename)
         for host in root.findall('host'):
             address = host.find("address[@addrtype='ipv4']")
             ip = address.get('addr') if address is not None else '?'
-            if ip.startswith('127.'):
+            if ip == '?' or IPv4Address(ip).is_loopback:
                 print(f'LOCAL ONLY: {filename} ({ip}); nu confirma accesul prin hotspot')
                 continue
             for port in host.findall('ports/port'):
@@ -49,5 +52,5 @@ if __name__ == '__main__':
         raise SystemExit('Utilizare: python3 lab/services/check_xml.py fisier.xml [fisier.xml ...]')
     try:
         raise SystemExit(check(sys.argv[1:]))
-    except (ET.ParseError, OSError, ValueError) as exc:
+    except (ET.ParseError, OSError, ValueError, DefusedXmlException) as exc:
         raise SystemExit(str(exc))

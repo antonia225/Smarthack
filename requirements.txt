@@ -1,3 +1,4 @@
 defusedxml
-fastapi
+fastapi>=0.110,<1
+pydantic>=2,<3
 uvicorn

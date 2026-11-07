@@ -11,6 +11,9 @@ htmlcov/
 # Environment and local data
 .env
 *.sqlite3
+lab/network.json
+scans/
+.netcheck-scan.lock
 
 # Operating-system files
 .DS_Store

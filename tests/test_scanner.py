@@ -56,6 +56,10 @@ def test_detect_network_uses_real_mask(mask, prefix, subnet):
     (interface(mask="0xff00ff00"), ""),
     (interface(), "default link#14 UG en0"),
     (interface(), "default 172.20.10.3 UG en0"),
+    (interface(), "default 172.20.10.1 UG en0\n10/8 10.0.0.1"),
+    (interface(), "default 172.20.10.1 UGR en0"),
+    (interface(), "default 172.20.10.1 UGB en0"),
+    (interface(), "default 172.20.10.1 UG en0\n10/8 172.20.10.1 G en0"),
     (interface() + "\tinet 172.20.10.4 netmask 0xfffffff0\n", ""),
 ])
 def test_detect_network_fails_closed(interfaces, routes):
@@ -66,6 +70,14 @@ def test_detect_network_fails_closed(interfaces, routes):
 
 def test_ipv6_only_tunnel_does_not_block_ipv4():
     assert detect_with(interface() + "utun0: flags=8051<UP,POINTOPOINT> mtu 1500\n\tinet6 fe80::1 prefixlen 64\n").interface == "en0"
+
+
+def test_macos_local_host_route_and_inactive_interface_are_excluded():
+    result = detect_with(
+        interface() + interface("en1", status="inactive"),
+        "default 172.20.10.1 UGScg en0\n172.20.10.3 00:11:22:33:44:55 UHLWI lo0\n",
+    )
+    assert result.interface == "en0"
 
 
 def test_unsupported_platform():
@@ -83,7 +95,8 @@ def test_command_failure_is_clear():
             detect_network()
 
 
-def test_validate_scan_request_accepts_allowed_private_network():
+@patch("netcheck.scanner.detect_network", return_value=NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1"))
+def test_validate_scan_request_accepts_allowed_private_network(_detect):
     result = validate_scan_request(
         "172.20.10.0/28",
         ["172.20.10.0/28"],
@@ -91,7 +104,7 @@ def test_validate_scan_request_accepts_allowed_private_network():
     )
 
     assert result.target == "172.20.10.0/28"
-    assert result.allowed_networks == ["172.20.10.0/28"]
+    assert result.allowed_networks == ("172.20.10.0/28",)
 
 
 @pytest.mark.parametrize("target", ["8.8.8.8", "172.20.11.3"])
@@ -129,7 +142,8 @@ def test_run_scan_rejects_unvalidated_target(tmp_path):
         run_scan(target, str(tmp_path / "scan.xml"))
 
 
-def test_run_scan_builds_fixed_command_and_writes_xml(tmp_path):
+@patch("netcheck.scanner.detect_network", return_value=NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1"))
+def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
     output_path = str(tmp_path / "scan.xml")
     validated = validate_scan_request(
         "172.20.10.3",
@@ -140,11 +154,16 @@ def test_run_scan_builds_fixed_command_and_writes_xml(tmp_path):
     def fake_run(command, **kwargs):
         expected = [
             "nmap",
+            "-n",
             "-sS",
             "-sU",
             "-sV",
             "--script",
             "http-title",
+            "--script-timeout",
+            "30s",
+            "-p",
+            "T:1-1000,U:53,123,161,1900,5353",
             "--max-rate",
             "100",
             "-oX",
@@ -152,11 +171,13 @@ def test_run_scan_builds_fixed_command_and_writes_xml(tmp_path):
             "172.20.10.3",
         ]
         assert command == expected
-        assert kwargs == {"capture_output": True, "text": True}
-        Path(output_path).write_text("<nmaprun />", encoding="utf-8")
+        assert kwargs == {"capture_output": True, "text": True, "timeout": 300}
+        Path(output_path).write_text('<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>', encoding="utf-8")
         return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
-    with patch("netcheck.scanner.subprocess.run", side_effect=fake_run):
+    with patch("netcheck.scanner.subprocess.run", side_effect=fake_run), patch(
+        "netcheck.scanner.port_specification", return_value="T:1-1000,U:53,123,161,1900,5353"
+    ):
         result = run_scan(validated, output_path)
 
     assert result.xml_path == output_path

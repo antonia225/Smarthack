@@ -2,19 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from ipaddress import IPv4Address, IPv4Network, ip_address, ip_network
+from dataclasses import asdict, dataclass, field
+from ipaddress import IPv4Address, IPv4Network, ip_network
 import re
+import hashlib
+import hmac
+import secrets
 import json
 import platform
 import subprocess
+import time
 from pathlib import Path
 
+from defusedxml.common import DefusedXmlException
+from xml.etree.ElementTree import ParseError
 
-_VALIDATION_TOKEN = object()
+from netcheck.nmap_ports import port_specification
+from netcheck.scan_xml import read_completed_scan
 
 
-@dataclass
+_VALIDATION_KEY = secrets.token_bytes(32)
+_DEFAULT_LAB_CONFIG = Path(__file__).resolve().parent.parent / "lab" / "network.json"
+_PRIVATE_LANS = tuple(IPv4Network(cidr) for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+
+
+@dataclass(frozen=True)
 class NetworkInfo:
     interface: str
     ip: str
@@ -28,11 +40,12 @@ class NetworkInfo:
         return self.subnet
 
 
-@dataclass
+@dataclass(frozen=True)
 class ValidatedTarget:
     target: str
-    allowed_networks: list[str]
-    _validation_token: object | None = field(
+    allowed_networks: tuple[str, ...]
+    network: NetworkInfo | None = None
+    _validation_token: str | None = field(
         default=None,
         repr=False,
         compare=False,
@@ -44,6 +57,7 @@ class ScanResult:
     xml_path: str
     success: bool
     error: str | None = None
+    duration_seconds: float = 0.0
 
 
 class NetworkDetectionError(RuntimeError):
@@ -55,6 +69,12 @@ def _run_system_command(command: list[str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             command, capture_output=True, text=True, encoding="utf-8", check=True, timeout=10,
         )
+    except FileNotFoundError as exc:
+        requirement = {
+            "ip": "Instalați iproute2 (comanda ip cu suport JSON).",
+            "powershell.exe": "Este necesar Windows PowerShell cu modulele NetTCPIP și NetAdapter.",
+        }.get(command[0], "Verificați disponibilitatea utilitarelor native de rețea.")
+        raise NetworkDetectionError(f"Lipsește utilitarul {command[0]}. {requirement}") from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise NetworkDetectionError(
             f"Nu pot citi configurația rețelei ({command[0]}): {exc}"
@@ -114,14 +134,18 @@ def _detect_macos() -> NetworkInfo:
     found_header = False
     for line in routes.splitlines():
         columns = line.split()
-        if columns[:1] == ["Destination"]:
+        if columns[:4] == ["Destination", "Gateway", "Flags", "Netif"]:
             found_header = True
             continue
-        if not found_header or len(columns) < 4:
+        if not found_header or not columns:
             continue
+        if len(columns) < 4:
+            raise NetworkDetectionError("Tabelul rutelor IPv4 este incomplet; detectarea a fost oprită.")
         destination, gateway, flags, interface = columns[:4]
-        if interface.startswith("lo"):
+        if re.fullmatch(r"lo\d+", interface):
             continue
+        if "U" not in flags or "R" in flags or "B" in flags:
+            raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
         if interface != name:
             raise NetworkDetectionError(
                 f"Rută IPv4 pe altă interfață ({interface}); posibil VPN sau rețea ambiguă."
@@ -277,7 +301,14 @@ def _detect_linux() -> NetworkInfo:
 
 
 def detect_network() -> NetworkInfo:
-    """Detect one unambiguous LAN on macOS, Windows or Linux; never scan."""
+    """Detect one unambiguous IPv4 LAN; never scan.
+
+    Backends: macOS native tools, Windows PowerShell, Linux iproute2 JSON.
+    Native demonstration platform: macOS; other platforms require lab validation.
+    The caller must connect to the intended lab: IP configuration cannot prove
+    that a network belongs to the laboratory or identify its hotspot owner.
+    Raises NetworkDetectionError instead of choosing among ambiguous networks.
+    """
     system = platform.system()
     backend = {"Darwin": _detect_macos, "Windows": _detect_windows, "Linux": _detect_linux}.get(system)
     if backend is None:
@@ -293,6 +324,8 @@ def _permission_error(message_ro: str, message_en: str) -> PermissionError:
 
 
 def _parse_target(target: str) -> IPv4Network:
+    if not isinstance(target, str) or not target or target != target.strip():
+        raise _permission_error("Țintă invalidă", "Invalid target")
     try:
         parsed = ip_network(target, strict=False)
     except ValueError:
@@ -312,77 +345,131 @@ def _parse_target(target: str) -> IPv4Network:
     return parsed
 
 
+def _check_policy(target: str, allowed_networks) -> tuple[str, ...]:
+    target_network = _parse_target(target)
+    try:
+        if isinstance(allowed_networks, (str, bytes)):
+            raise ValueError("Expected a collection of CIDRs")
+        permitted = tuple(IPv4Network(value, strict=False) for value in allowed_networks)
+    except (ValueError, TypeError) as exc:
+        raise _permission_error("Allowlist invalid", "Invalid allowlist") from exc
+    if not permitted or any(
+        not any(network.subnet_of(private) for private in _PRIVATE_LANS)
+        for network in (target_network, *permitted)
+    ):
+        raise _permission_error(
+            "Sunt permise doar rețele private RFC1918; adresele speciale/publice sunt interzise",
+            "Only RFC1918 private networks are allowed; special/public addresses are forbidden",
+        )
+    if target_network.prefixlen < 24:
+        raise _permission_error("Subnetul este prea mare; limita este /24", "Subnet too large; limit is /24")
+    if not any(target_network.subnet_of(network) for network in permitted):
+        raise _permission_error("Ținta este în afara rețelei permise", "Target is outside the allowlist")
+    return tuple(str(network) for network in permitted)
+
+
+def _check_network(expected: NetworkInfo, target: str) -> None:
+    current = detect_network()
+    if current != expected:
+        raise _permission_error(
+            "Rețeaua s-a schimbat; reautorizați explicit laboratorul",
+            "Network changed; explicitly reauthorize the laboratory",
+        )
+    if not _parse_target(target).subnet_of(IPv4Network(current.subnet)):
+        raise _permission_error("Ținta nu este în LAN-ul autorizat", "Target is outside the authorized LAN")
+
+
+def configure_lab_network(allowed_networks: list[str], *, confirm: bool = False,
+                          config_path: str | Path = _DEFAULT_LAB_CONFIG) -> None:
+    """Explicitly authorize and persist the current lab; never called automatically.
+
+    Existing configuration is not overwritten. Remove it deliberately to authorize
+    a different lab. IP/interface/gateway matching is not hotspot authentication.
+    """
+    if confirm is not True:
+        raise _permission_error("Confirmarea laboratorului este obligatorie", "Lab confirmation is required")
+    if not allowed_networks:
+        raise _permission_error("Allowlist gol", "Empty allowlist")
+    permitted = _check_policy(allowed_networks[0], allowed_networks)
+    network = detect_network()
+    if any(not IPv4Network(value).subnet_of(IPv4Network(network.subnet)) for value in permitted):
+        raise _permission_error("Allowlist în afara LAN-ului", "Allowlist outside the LAN")
+    Path(config_path).parent.mkdir(parents=True, exist_ok=True)
+    with Path(config_path).open("x", encoding="utf-8") as handle:
+        json.dump({"network": asdict(network), "allowed_networks": permitted}, handle, indent=2)
+
+
+def _signature(target: str, allowed_networks: tuple[str, ...], network: NetworkInfo) -> str:
+    payload = json.dumps([target, allowed_networks, asdict(network)], sort_keys=True).encode()
+    return hmac.new(_VALIDATION_KEY, payload, hashlib.sha256).hexdigest()
+
+
 def validate_scan_request(
     target: str,
     allowed_networks: list[str] | None = None,
     confirm: bool = False,
+    *,
+    config_path: str | Path = _DEFAULT_LAB_CONFIG,
 ) -> ValidatedTarget:
-    """Validate an IPv4 target against private, explicitly allowed networks."""
-
+    """Validate against explicit authorization, never auto-authorize a detected LAN."""
     if confirm is not True:
-        raise _permission_error(
-            "Confirmarea scanării este obligatorie",
-            "Scan confirmation is required",
-        )
-
+        raise _permission_error("Confirmarea scanării este obligatorie", "Scan confirmation is required")
     if allowed_networks is None:
-        allowed_networks = [detect_network().cidr]
-
-    try:
-        target_network = _parse_target(target)
-        permitted = [
-            ip_network(network, strict=False) for network in allowed_networks
-        ]
-    except ValueError as exc:
-        raise _permission_error(
-            "Rețeaua permisă nu este validă",
-            "The allowed network is invalid",
-        ) from exc
-
-    if not target_network.is_private:
-        raise _permission_error(
-            "Nu putem scana o adresă publică",
-            "We can't scan a public address",
-        )
-
-    if target_network.prefixlen < 24:
-        raise _permission_error(
-            "Subnetul este prea mare; sunt permise cel mult rețele /24",
-            "The subnet is too large; networks broader than /24 are forbidden",
-        )
-
-    if not any(target_network.subnet_of(network) for network in permitted):
-        raise _permission_error(
-            "Nu putem scana o țintă din afara rețelei permise",
-            "We can't scan a target outside the allowed network",
-        )
-
-    return ValidatedTarget(
-        target=target,
-        allowed_networks=list(allowed_networks),
-        _validation_token=_VALIDATION_TOKEN,
-    )
+        try:
+            data = json.loads(Path(config_path).read_text(encoding="utf-8"))
+            expected = NetworkInfo(**data["network"])
+            allowed_networks = data["allowed_networks"]
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            raise _permission_error(
+                "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",
+                "Lab configuration missing or invalid; explicitly configure the lab",
+            ) from exc
+    else:
+        # An explicit allowlist authorizes this request, bound to its current LAN.
+        expected = None
+    permitted = _check_policy(target, allowed_networks)
+    canonical = str(_parse_target(target)) if "/" in target else str(IPv4Address(target))
+    if expected is None:
+        expected = detect_network()
+    _check_network(expected, canonical)
+    return ValidatedTarget(canonical, permitted, expected, _signature(canonical, permitted, expected))
 
 
 def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
     """Run the fixed allowlisted Nmap scan and save its XML output."""
 
-    if (
-        not isinstance(validated_target, ValidatedTarget)
-        or validated_target._validation_token is not _VALIDATION_TOKEN
-    ):
-        raise PermissionError(
-            "Ținta nu a fost validată prin validate_scan_request "
-            "/ The target was not validated by validate_scan_request"
-        )
+    if (not isinstance(validated_target, ValidatedTarget)
+            or not isinstance(validated_target.network, NetworkInfo)
+            or not isinstance(validated_target._validation_token, str)
+            or not hmac.compare_digest(validated_target._validation_token, _signature(
+                validated_target.target, validated_target.allowed_networks, validated_target.network))):
+        raise _permission_error("Ținta nu este validată sau a fost modificată", "Target is unvalidated or modified")
+    _check_policy(validated_target.target, validated_target.allowed_networks)
+    _check_network(validated_target.network, validated_target.target)
+
+    started = time.monotonic()
+    def outcome(success: bool, error: str | None = None) -> ScanResult:
+        return ScanResult(output_path, success, error, round(time.monotonic() - started, 3))
+
+    if Path(output_path).exists():
+        return outcome(False, "Fișierul există deja / Output file already exists")
+    try:
+        ports = port_specification()
+    except (OSError, ValueError) as exc:
+        return outcome(False, str(exc))
 
     command = [
         "nmap",
+        "-n",
         "-sS",
         "-sU",
         "-sV",
         "--script",
         "http-title",
+        "--script-timeout",
+        "30s",
+        "-p",
+        ports,
         "--max-rate",
         "100",
         "-oX",
@@ -390,16 +477,17 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
         validated_target.target,
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return outcome(False, "Scanarea a depășit 300 s; XML incomplet / Scan exceeded 300 s; incomplete XML")
+    except OSError as exc:
+        return outcome(False, f"Nu pot porni Nmap / Cannot start Nmap: {exc}")
     if result.returncode != 0:
         error = result.stderr.strip() or result.stdout.strip() or "Nmap failed."
-        return ScanResult(output_path, success=False, error=error)
-
-    if not Path(output_path).is_file():
-        return ScanResult(
-            output_path,
-            success=False,
-            error="Nmap did not write the XML output.",
-        )
-
-    return ScanResult(output_path, success=True)
+        return outcome(False, error)
+    try:
+        read_completed_scan(output_path)
+    except (OSError, ValueError, ParseError, DefusedXmlException) as exc:
+        return outcome(False, f"Rezultat XML invalid / Invalid XML result: {exc}")
+    return outcome(True)

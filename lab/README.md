@@ -68,6 +68,70 @@ laboratorului și salvați rezultatele noi în fișiere distincte, fără a
 suprascrie acest artefact. Comparațiile înainte/după trebuie să urmărească
 același dispozitiv și serviciu, chiar dacă adresa IP se schimbă.
 
+## BEFORE -> remediere -> AFTER
+
+Instrumentul oficial de captură folosește aceleași guardrail-uri ca `scan` și
+nu poate porni fără confirmare explicită:
+
+```sh
+python -m netcheck lab-run --label before <IP-or-CIDR> --confirm
+```
+
+Pentru mai multe ținte autorizate, repetați argumentul pozițional în aceeași
+comandă. Fiecare rezultat primește un XML UUID în `lab/before/` și un JSON cu
+data UTC, laptopul scanner, ținta, durata, numărul de adrese și rețeaua
+detectată. `after` se capturează identic:
+
+```sh
+python -m netcheck lab-run --label after <IP-or-CIDR> --confirm
+```
+
+Nu se suprascrie niciun rezultat existent. Durata unei scanări pe un hotspot
+mic nu dovedește că un `/24` a fost scanat în mai puțin de cinci minute;
+această performanță rămâne de măsurat pe laptop și rețeaua reale.
+
+1. Verificați manual hotspot-ul, interfața, IP-urile și permisiunea.
+2. Porniți serviciile de laborator și salvați `before`.
+3. Rulați scriptul de remediere de pe laptopul gazdă:
+   - Windows: `.\scripts\windows\remediate-lab-services.ps1`
+   - macOS: `zsh scripts/macos/remediate-lab-services.zsh`
+4. Verificați că TCP 23 (Telnet) și TCP 1883 (MQTT) nu mai sunt accesibile.
+5. Salvați `after` cu aceeași țintă și condiții comparabile.
+6. Comparați XML-urile:
+
+```sh
+python lab/compare.py lab/before lab/after
+```
+
+Comparația folosește exclusiv `lab/services/check_xml.py` pentru
+`HTTP_ADMIN_CLEARTEXT`, `DB_EXPOSED`, `MQTT_EXPOSED`, `TELNET_OPEN` și
+`FTP_CLEARTEXT`. Integrarea cu analizorul și calculul scorului sunt **TODO**
+până când există comanda `analyze`; nu inventăm findings și nu calculăm scorul
+manual. Criteriul „gata” este: cel puțin două findings rezolvate și scor mai
+bun calculat de motorul oficial. În starea actuală criteriul nu poate fi
+declarat atins.
+
+Scripturile opresc doar simulatorul și serviciul MQTT, nu șterg configurații
+sau volume; pornirea originală este reversibilă prin reluarea comenzilor
+documentate în `lab/services/README.md`. Pe Windows scriptul salvează
+procesele locale găsite, iar în Compose oprește serviciile `simulators` și
+`mqtt`. Pe macOS salvează PID-urile și trimite simulatorului `TERM`.
+Verificarea porturilor este manuală:
+
+```powershell
+Test-NetConnection <IP-gazdă> -Port 23
+Test-NetConnection <IP-gazdă> -Port 1883
+```
+
+```sh
+nc -vz <IP-gazdă> 23
+nc -vz <IP-gazdă> 1883
+```
+
+Rezultatul trebuie consemnat ca eșec de conectare/refuz. Comportamentul exact
+al firewall-ului, Nmap, Npcap și regulilor sudoers este neverificat aici și
+trebuie confirmat pe laptopurile reale.
+
 ## Inventarul sesiunii
 
 Date comunicate de echipă la 7 noiembrie 2026; nu au fost măsurate automat.

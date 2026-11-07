@@ -67,8 +67,10 @@ produs deja de motorul aplicației.
   ieșirile produsului trebuie să mascheze MAC-urile. XML-ul brut de scanare
   poate conține date complete: revizuiți capturile înainte de distribuire.
 - **Secrete (NFR-01):** configurația locală și parola temporară DB sunt în
-  afara Git. Mai trebuie rulată și demonstrată verificarea cu un secret scanner,
-  inclusiv asupra istoricului repo-ului; inspecția manuală nu o înlocuiește.
+  afara Git, iar `.env.example` documentează explicit că aplicația nu citește
+  variabile de mediu. Au fost adăugate configurația și scripturile gitleaks
+  pentru working tree și istoric. Gitleaks 8.30.1 a scanat working tree-ul și
+  toate cele 31 de commit-uri; nu au fost găsite leak-uri.
 - **Determinism (NFR-05):** viitorul motor va produce identic findings,
   severități și scoruri; nu folosiți LLM pentru aceste decizii.
 - **Performanță (NFR-07):** măsurați analiza offline sub 30 s/fișier și scanarea
@@ -77,8 +79,9 @@ produs deja de motorul aplicației.
 - **Limbă și accesibilitate (NFR-08/09):** toate textele produsului în RO/EN,
   minimum 16 px, tastatură, contrast AA, icon și etichetă pe lângă culoare.
   Mesajele și ajutorul CLI necesită încă revizie lingvistică completă.
-- **Reproducibilitate (NFR-10):** verificați instalarea într-un mediu curat,
-  documentați dependențele externe și păstrați fixtures reale.
+- **Reproducibilitate (NFR-10):** `scripts/setup.py` creează `.venv`,
+  instalează `requirements-dev.txt` și raportează lipsa Nmap; verificarea într-un
+  mediu curat și instalarea separată a Nmap rămân de confirmat manual.
 
 ## Ce se livrează în continuare
 

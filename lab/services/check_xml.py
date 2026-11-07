@@ -13,6 +13,36 @@ EXPECTED = {
     'TELNET_OPEN', 'FTP_CLEARTEXT',
 }
 
+def codes_for_paths(paths):
+    found = set()
+    for filename in paths:
+        root = read_completed_scan(filename)
+        for host in root.findall('host'):
+            address = host.find("address[@addrtype='ipv4']")
+            ip = address.get('addr') if address is not None else '?'
+            if ip == '?' or IPv4Address(ip).is_loopback:
+                print(f'LOCAL ONLY: {filename} ({ip}); nu confirma accesul prin hotspot')
+                continue
+            for port in host.findall('ports/port'):
+                state, service = port.find('state'), port.find('service')
+                if state is None or state.get('state') != 'open' or service is None:
+                    continue
+                name = service.get('name', '')
+                code = {'telnet': 'TELNET_OPEN', 'ftp': 'FTP_CLEARTEXT',
+                        'mqtt': 'MQTT_EXPOSED'}.get(name)
+                if name in {'mysql', 'postgresql', 'redis', 'mongodb'}:
+                    code = 'DB_EXPOSED'
+                title = ' '.join(s.get('output', '') for s in port.findall('script')
+                                 if s.get('id') == 'http-title').lower()
+                if (name == 'http' and service.get('tunnel') != 'ssl'
+                        and any(word in title for word in
+                                ('login', 'admin', 'config', 'setup', 'router', 'settings'))):
+                    code = 'HTTP_ADMIN_CLEARTEXT'
+                if code:
+                    found.add(code)
+    return found
+
+
 def check(paths):
     found = set()
     for filename in paths:

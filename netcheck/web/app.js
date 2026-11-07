@@ -17,7 +17,10 @@ const state = {
   openPorts: new Set(),  // dispozitive cu porturile deschise
   compareA: 2,
   compareB: 3,
-  cleared: false         // istoric șters (mock)
+  cleared: false,
+  scans: [],
+  currentScanId: null,
+  compareResult: null
 };
 
 const SEVERITIES = [
@@ -102,6 +105,8 @@ function countUp(node, to, dur) {
 
 // MAC mascat parțial (confidențialitate): se văd doar primii 3 octeți
 function maskMac(mac) {
+  if (!mac) return "";
+  if (mac.includes("*")) return mac;
   return mac.split(":").slice(0, 3).join(":") + ":••:••:••";
 }
 
@@ -115,8 +120,25 @@ function location_(p) {
 }
 
 // Problemele afișate (în starea „clean” nu există niciuna) și scorul
-function getProblems() { return state.ui === "clean" ? [] : t("problems"); }
-function getScore() { return state.ui === "clean" ? t("scoreMax") : t("score"); }
+function getCurrentScan() {
+  return state.scans.find((scan) => scan.id === state.currentScanId) || state.scans[state.scans.length - 1];
+}
+
+function getProblems() {
+  const scan = getCurrentScan();
+  return state.ui === "clean" || !scan ? [] : scan.problems;
+}
+
+function getDevices() {
+  const scan = getCurrentScan();
+  return scan ? scan.devices : [];
+}
+
+function getScans() { return state.scans; }
+function getScore() {
+  const scan = getCurrentScan();
+  return state.ui === "clean" || !scan ? t("scoreMax") : scan.score;
+}
 
 // Probleme sortate: cele mai grave primele (păstrăm indexul original pentru link-uri)
 function sortedProblems() {
@@ -127,7 +149,7 @@ function sortedProblems() {
 }
 
 function deviceByIp(ip) {
-  return t("devices").find((d) => d.ip === ip);
+  return getDevices().find((d) => d.ip === ip);
 }
 
 function kindIcon(kind) {
@@ -199,6 +221,20 @@ function renderHome() {
   const problems = getProblems();
   const sorted = sortedProblems();
   const score = getScore();
+  const scanSelect = $("scan-select");
+  scanSelect.replaceChildren();
+  getScans().forEach((scan) => {
+    const option = el("option", "", scan.file + " · " + scan.date);
+    option.value = String(scan.id);
+    scanSelect.appendChild(option);
+  });
+  scanSelect.value = state.currentScanId === null ? "" : String(state.currentScanId);
+  scanSelect.dispatchEvent(new Event("dd-refresh"));
+  const lastScan = document.querySelector(".last-scan span");
+  if (lastScan) {
+    const current = getCurrentScan();
+    lastScan.textContent = current ? current.date : "";
+  }
 
   // --- Cardul de sus: dispozitiv periculos / stare pozitivă ---
   const hasProblems = sorted.length > 0;
@@ -259,7 +295,7 @@ function renderHome() {
   const summary = $("summary");
   summary.replaceChildren();
   [
-    ["i-devices", "statDevices", t("devices").length],
+    ["i-devices", "statDevices", getDevices().length],
     ["i-list", "statProblems", problems.length],
     ["i-check", "statResolved", t("resolvedCount")]
   ].forEach(([icon, label, value]) => {
@@ -411,7 +447,7 @@ function worstProblemFor(ip) {
 function renderDevices() {
   const body = $("device-body");
   body.replaceChildren();
-  t("devices").forEach((d, i) => {
+  getDevices().forEach((d, i) => {
     const tr = el("tr");
     const cell = (labelKey, content, cls) => {
       const td = el("td", cls || "");
@@ -491,7 +527,7 @@ function renderDevices() {
 function scanTotal(s) { return s.high + s.medium + s.low + s.info; }
 
 function renderHistory() {
-  const scans = t("scans");
+  const scans = getScans();
 
   const body = $("history-body");
   body.replaceChildren();
@@ -528,6 +564,11 @@ function smoothPath(pts) {
 }
 
 function renderChart(scans) {
+  if (scans.length === 0) {
+    $("chart-wrap").replaceChildren();
+    $("chart-stats").replaceChildren();
+    return;
+  }
   const W = 560, H = 220, L = 44, R = 60, T = 34, B = 46;
   const pw = W - L - R, ph = H - T - B;
   const x = (i) => L + (scans.length === 1 ? pw / 2 : (pw * i) / (scans.length - 1));
@@ -599,6 +640,10 @@ function renderCompareControls(scans) {
       sel.appendChild(o);
     });
     sel.value = String(state[key]);
+    if (!sel.value || !Array.from(sel.options).some((option) => option.value === sel.value)) {
+      state[key] = scans[0] ? scans[0].id : "";
+      sel.value = String(state[key]);
+    }
     sel.dispatchEvent(new Event("dd-refresh"));
   });
 }
@@ -636,8 +681,15 @@ function diffSets(a, b) {
 }
 
 function renderCompare(animate) {
-  const scans = t("scans");
-  const a = scans[state.compareA], b = scans[state.compareB];
+  const scans = getScans();
+  const a = scans.find((scan) => scan.id === state.compareA);
+  const b = scans.find((scan) => scan.id === state.compareB);
+  if (!a || !b) {
+    $("panel-before-body").replaceChildren();
+    $("panel-after-body").replaceChildren();
+    $("diff-grid").replaceChildren();
+    return;
+  }
 
   const pb = fillPanel("panel-before-body", a);
   const pa = fillPanel("panel-after-body", b);
@@ -657,10 +709,33 @@ function renderCompare(animate) {
   sum.textContent = delta > 0 ? fmt(t("cmpUp"), { n: delta })
     : delta < 0 ? fmt(t("cmpDown"), { n: -delta }) : t("cmpSame");
 
-  // Cele 6 liste de diferențe
-  const pr = diffSets(a.problems, b.problems);
-  const dv = diffSets(a.devices, b.devices);
-  const pt = diffSets(a.ports, b.ports);
+  if (!state.compareResult || state.compareResult.a !== a.id || state.compareResult.b !== b.id) {
+    fetch("/api/compare?a=" + encodeURIComponent(a.id) + "&b=" + encodeURIComponent(b.id))
+      .then((response) => {
+        if (!response.ok) throw new Error("compare");
+        return response.json();
+      })
+      .then((result) => {
+        state.compareResult = { a: a.id, b: b.id, value: result };
+        renderCompare(false);
+      })
+      .catch(() => showMessage("msgReadFail", "error"));
+    return;
+  }
+
+  const result = state.compareResult.value;
+  const pr = {
+    added: result.new_findings.map((item) => item.code + " · " + item.ip),
+    removed: result.resolved_findings.map((item) => item.code + " · " + item.ip)
+  };
+  const dv = {
+    added: result.new_devices,
+    removed: result.removed_devices
+  };
+  const pt = {
+    added: result.opened_ports.map((item) => item.ip + ":" + item.port),
+    removed: result.closed_ports.map((item) => item.ip + ":" + item.port)
+  };
   const groups = [
     { title: "dResolved", tone: "good", items: pr.removed },
     { title: "dNewProblems", tone: "bad", items: pr.added },
@@ -679,6 +754,7 @@ function renderDiffViewer() {
   const groups = state.diffGroups || [];
   const host = $("diff-grid");
   host.replaceChildren();
+  if (groups.length === 0) return;
   const nav = el("div", "diff-nav");
   nav.setAttribute("role", "tablist");
   groups.forEach((g, n) => {
@@ -758,9 +834,19 @@ $("confirm-cancel").addEventListener("click", () => confirmDialog.close());
 confirmDialog.addEventListener("click", (e) => { if (e.target === confirmDialog) confirmDialog.close(); });
 $("confirm-ok").addEventListener("click", () => {
   confirmDialog.close();
-  state.cleared = true; // mock: doar arată starea goală
-  applyUiState();
-  showMessage("msgCleared");
+  showMessage("msgLoading", "loading");
+  fetch("/api/history", { method: "DELETE" })
+    .then((response) => {
+      if (!response.ok) throw new Error("history");
+      state.scans = [];
+      state.currentScanId = null;
+      state.compareResult = null;
+      state.cleared = true;
+      state.ui = "empty";
+      applyTexts();
+      showMessage("msgCleared");
+    })
+    .catch(() => showMessage("msgReadFail", "error"));
 });
 
 // ---------- Detaliu problemă ----------
@@ -768,7 +854,7 @@ function renderProblem() {
   const box = $("problem-detail");
   box.replaceChildren();
   if (state.problem === null) return;
-  const p = t("problems")[state.problem];
+  const p = getProblems()[state.problem];
   if (!p) {
     box.className = "card detail";
     box.appendChild(el("p", "muted", t("notFound")));
@@ -840,7 +926,7 @@ function showView(view) {
 
   if (view === "home") animateScore();
   if (view === "history" && !$("history-content").hidden) {
-    renderChart(t("scans"));   // regenerat, ca să se vadă animația la fiecare intrare
+    renderChart(getScans());   // regenerat, ca să se vadă animația la fiecare intrare
     renderCompare(true);
   }
 }
@@ -923,7 +1009,17 @@ fileInput.addEventListener("change", () => {
     try {
       const doc = new DOMParser().parseFromString(String(reader.result), "application/xml");
       if (doc.querySelector("parsererror")) throw new Error("xml");
-      showMessage("msgImported"); // mock: datele afișate rămân cele de exemplu
+      fetch("/api/import?filename=" + encodeURIComponent(f.name), {
+        method: "POST",
+        headers: { "Content-Type": "application/xml" },
+        body: String(reader.result)
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error("import");
+          return loadData(false);
+        })
+        .then(() => showMessage("msgImported"))
+        .catch(() => showMessage("msgReadFail", "error"));
     } catch (e) {
       showMessage("msgBadFile", "error");
     }
@@ -950,8 +1046,12 @@ $("sev-filter").addEventListener("change", (e) => {
 });
 
 // Compararea a două scanări
-$("cmp-before").addEventListener("change", (e) => { state.compareA = Number(e.target.value); renderCompare(true); });
-$("cmp-after").addEventListener("change", (e) => { state.compareB = Number(e.target.value); renderCompare(true); });
+$("cmp-before").addEventListener("change", (e) => { state.compareA = Number(e.target.value); state.compareResult = null; renderCompare(true); });
+$("cmp-after").addEventListener("change", (e) => { state.compareB = Number(e.target.value); state.compareResult = null; renderCompare(true); });
+$("scan-select").addEventListener("change", (e) => {
+  state.currentScanId = Number(e.target.value);
+  renderHome();
+});
 
 // ---------- Liste derulante personalizate ----------
 function enhanceSelect(sel) {
@@ -1032,3 +1132,90 @@ function enhanceSelect(sel) {
 
 applyTexts();
 route();
+
+function findingModel(finding, devices) {
+  const device = devices.find((item) => item.ip === finding.ip);
+  const name = device && (device.hostname || device.vendor);
+  return {
+    code: finding.code,
+    desc: finding.evidence || finding.code,
+    ip: finding.ip,
+    port: finding.port,
+    points: finding.points,
+    level: finding.severity,
+    device: name || finding.ip,
+    detail: finding.evidence || finding.code,
+    first: finding.evidence || finding.code,
+    steps: []
+  };
+}
+
+function deviceModel(device) {
+  const kind = String(device.device_type || "unknown").toLowerCase();
+  return {
+    kind: ["router", "camera", "printer", "laptop", "tv", "phone"].includes(kind) ? kind : "unknown",
+    ip: device.ip,
+    type: device.device_type || "unknown",
+    name: device.hostname || device.vendor || device.ip,
+    vendor: device.vendor || "",
+    mac: device.mac_masked || "",
+    ports: (device.ports || []).map((port) => ({
+      port: port.port,
+      service: port.service || "",
+      protocol: port.protocol || "",
+      product: port.product || "",
+      version: port.version || ""
+    }))
+  };
+}
+
+function scanModel(summary, detail) {
+  const findings = detail.findings || [];
+  const devices = (detail.devices || []).map(deviceModel);
+  const counts = { high: 0, medium: 0, low: 0, info: 0 };
+  findings.forEach((finding) => {
+    if (counts[finding.severity] !== undefined) counts[finding.severity]++;
+  });
+  return {
+    id: summary.id,
+    file: summary.file,
+    date: new Date(summary.scanned_at).toLocaleString(state.lang),
+    score: detail.network_score,
+    high: counts.high,
+    medium: counts.medium,
+    low: counts.low,
+    info: counts.info,
+    problems: findings.map((finding) => findingModel(finding, devices)),
+    devices,
+    ports: devices.flatMap((device) => device.ports.map((port) => device.ip + ":" + port.port))
+  };
+}
+
+async function loadData(showLoading) {
+  if (showLoading) showMessage("msgLoading", "loading");
+  const response = await fetch("/api/scans");
+  if (!response.ok) throw new Error("scans");
+  const summaries = await response.json();
+  const details = await Promise.all(summaries.map((summary) =>
+    fetch("/api/scans/" + encodeURIComponent(summary.id)).then((item) => {
+      if (!item.ok) throw new Error("scan");
+      return item.json();
+    })
+  ));
+  state.scans = summaries.map((summary, index) => scanModel(summary, details[index]));
+  state.currentScanId = state.scans.length ? state.scans[state.scans.length - 1].id : null;
+  state.cleared = state.scans.length === 0;
+  state.ui = state.scans.length ? "normal" : "empty";
+  if (state.scans.length) {
+    state.compareA = state.scans[Math.max(0, state.scans.length - 2)].id;
+    state.compareB = state.scans[state.scans.length - 1].id;
+  }
+  state.compareResult = null;
+  applyTexts();
+}
+
+loadData(true).catch(() => {
+  state.ui = "error";
+  applyTexts();
+  showMessage("msgReadFail", "error");
+});

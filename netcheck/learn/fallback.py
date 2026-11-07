@@ -43,7 +43,7 @@ def answer(
             "en": "The scan cannot answer that question.",
         }[lang]
         return PREFIX[lang] + message + " [catalog:local]", [
-            {"type": "catalog", "id": "local", "title": "Local catalog"}
+            {"type": "catalog", "id": "local", "title": "Catalog local" if lang == "ro" else "Local catalog"}
         ]
     selected = passages[:2]
     answer_text = " ".join(item.text for item in selected)

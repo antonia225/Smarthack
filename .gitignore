@@ -48,3 +48,7 @@ Desktop.ini
 build/
 dist/
 *.egg-info/
+design-rules/
+
+# Cached public downloads; generated corpus/index remain reviewable.
+knowledge/.cache/

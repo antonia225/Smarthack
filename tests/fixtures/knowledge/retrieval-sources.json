@@ -1,0 +1,206 @@
+[
+  {
+    "id": "telnet",
+    "title": "Telnet",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Telnet",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Telnet; see source page history",
+    "language": "en",
+    "codes": [
+      "TELNET_OPEN"
+    ],
+    "keywords_en": [
+      "telnet",
+      "unencrypted remote login"
+    ],
+    "keywords_ro": [
+      "telnet",
+      "autentificare la distanță",
+      "text clar"
+    ]
+  },
+  {
+    "id": "rdp",
+    "title": "Remote Desktop Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Remote_Desktop_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Remote Desktop Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "RDP_EXPOSED"
+    ],
+    "keywords_en": [
+      "rdp",
+      "remote desktop"
+    ],
+    "keywords_ro": [
+      "rdp",
+      "desktop la distanță",
+      "acces de la distanță"
+    ]
+  },
+  {
+    "id": "ftp",
+    "title": "File Transfer Protocol",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/File_Transfer_Protocol",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, File Transfer Protocol; see source page history",
+    "language": "en",
+    "codes": [
+      "FTP_CLEARTEXT"
+    ],
+    "keywords_en": [
+      "ftp",
+      "file transfer"
+    ],
+    "keywords_ro": [
+      "ftp",
+      "transfer fișiere",
+      "parole necriptate"
+    ]
+  },
+  {
+    "id": "smb",
+    "title": "Server Message Block",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Server_Message_Block",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Server Message Block; see source page history",
+    "language": "en",
+    "codes": [
+      "SMB_EXPOSED"
+    ],
+    "keywords_en": [
+      "smb",
+      "server message block",
+      "file sharing"
+    ],
+    "keywords_ro": [
+      "smb",
+      "partajare fișiere",
+      "foldere partajate"
+    ]
+  },
+  {
+    "id": "mqtt",
+    "title": "MQTT",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/MQTT",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, MQTT; see source page history",
+    "language": "en",
+    "codes": [
+      "MQTT_EXPOSED"
+    ],
+    "keywords_en": [
+      "mqtt",
+      "message broker",
+      "publish subscribe"
+    ],
+    "keywords_ro": [
+      "mqtt",
+      "broker mesaje",
+      "publicare abonare"
+    ]
+  },
+  {
+    "id": "ip-address",
+    "title": "IP address",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/IP_address",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, IP address; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "ip address",
+      "internet protocol address"
+    ],
+    "keywords_ro": [
+      "adresă ip",
+      "adrese ip"
+    ]
+  },
+  {
+    "id": "subnetwork",
+    "title": "Subnetwork",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Subnetwork",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Subnetwork; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "subnetwork",
+      "subnet",
+      "cidr",
+      "subnet mask"
+    ],
+    "keywords_ro": [
+      "subrețea",
+      "mască de rețea",
+      "prefix cidr"
+    ]
+  },
+  {
+    "id": "firewall",
+    "title": "Firewall (computing)",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Firewall_(computing)",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Firewall (computing); see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "firewall",
+      "packet filtering"
+    ],
+    "keywords_ro": [
+      "firewall",
+      "filtrare pachete",
+      "paravan de protecție"
+    ]
+  },
+  {
+    "id": "nat",
+    "title": "Network address translation",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Network_address_translation",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Network address translation; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "nat",
+      "network address translation"
+    ],
+    "keywords_ro": [
+      "nat",
+      "translatare adrese",
+      "traducere adrese"
+    ]
+  },
+  {
+    "id": "mdns",
+    "title": "Multicast DNS",
+    "kind": "wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Multicast_DNS",
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Wikipedia contributors, Multicast DNS; see source page history",
+    "language": "en",
+    "codes": [],
+    "keywords_en": [
+      "mdns",
+      "multicast dns",
+      "local name resolution"
+    ],
+    "keywords_ro": [
+      "mdns",
+      "rezolvare nume locale",
+      "dns multicast"
+    ]
+  }
+]

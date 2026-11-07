@@ -1,0 +1,545 @@
+{
+  "schema_version": 2,
+  "documents": [
+    {
+      "id": "telnet",
+      "title": "Telnet",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Telnet",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Telnet; see source page history",
+      "language": "en",
+      "codes": [
+        "TELNET_OPEN"
+      ],
+      "keywords_en": [
+        "telnet",
+        "unencrypted remote login"
+      ],
+      "keywords_ro": [
+        "telnet",
+        "autentificare la distanță",
+        "text clar"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:telnet#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Telnet",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Telnet",
+      "revision": {
+        "sha256": "6dc9e52ea4386d3bd641042b8ef9d5ae06c43fbc596f956fb8e03b838e79c049",
+        "etag": null,
+        "last_modified": null,
+        "id": 1383323126,
+        "timestamp": "2026-11-02T02:53:38Z",
+        "title": "Telnet"
+      },
+      "retrieved": "2026-11-07T23:18:24.881956+00:00"
+    },
+    {
+      "id": "rdp",
+      "title": "Remote Desktop Protocol",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Remote_Desktop_Protocol",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Remote Desktop Protocol; see source page history",
+      "language": "en",
+      "codes": [
+        "RDP_EXPOSED"
+      ],
+      "keywords_en": [
+        "rdp",
+        "remote desktop"
+      ],
+      "keywords_ro": [
+        "rdp",
+        "desktop la distanță",
+        "acces de la distanță"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:rdp#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Remote_Desktop_Protocol",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Remote+Desktop+Protocol",
+      "revision": {
+        "sha256": "45fbc3335a7c247fe29701ad01c809ecb86f1ceaf76532c5df50a41da5fcfd44",
+        "etag": null,
+        "last_modified": null,
+        "id": 1375769321,
+        "timestamp": "2026-09-19T23:45:53Z",
+        "title": "Remote Desktop Protocol"
+      },
+      "retrieved": "2026-11-07T23:18:24.903198+00:00"
+    },
+    {
+      "id": "ftp",
+      "title": "File Transfer Protocol",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/File_Transfer_Protocol",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, File Transfer Protocol; see source page history",
+      "language": "en",
+      "codes": [
+        "FTP_CLEARTEXT"
+      ],
+      "keywords_en": [
+        "ftp",
+        "file transfer"
+      ],
+      "keywords_ro": [
+        "ftp",
+        "transfer fișiere",
+        "parole necriptate"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:ftp#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/File_Transfer_Protocol",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=File+Transfer+Protocol",
+      "revision": {
+        "sha256": "8350bb50f282d0a974dcda9a1065fafc2b8db02cc710b12794426029bcb3064a",
+        "etag": null,
+        "last_modified": null,
+        "id": 1383255114,
+        "timestamp": "2026-11-01T19:38:19Z",
+        "title": "File Transfer Protocol"
+      },
+      "retrieved": "2026-11-07T23:18:25.550549+00:00"
+    },
+    {
+      "id": "smb",
+      "title": "Server Message Block",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Server_Message_Block",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Server Message Block; see source page history",
+      "language": "en",
+      "codes": [
+        "SMB_EXPOSED"
+      ],
+      "keywords_en": [
+        "smb",
+        "server message block",
+        "file sharing"
+      ],
+      "keywords_ro": [
+        "smb",
+        "partajare fișiere",
+        "foldere partajate"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:smb#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Server_Message_Block",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Server+Message+Block",
+      "revision": {
+        "sha256": "2f4e05eb33e486dc901bc9216766756dde345ded5c2941830de63901cd355f87",
+        "etag": null,
+        "last_modified": null,
+        "id": 1382081780,
+        "timestamp": "2026-10-26T13:59:38Z",
+        "title": "Server Message Block"
+      },
+      "retrieved": "2026-11-07T23:18:25.729098+00:00"
+    },
+    {
+      "id": "mqtt",
+      "title": "MQTT",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/MQTT",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, MQTT; see source page history",
+      "language": "en",
+      "codes": [
+        "MQTT_EXPOSED"
+      ],
+      "keywords_en": [
+        "mqtt",
+        "message broker",
+        "publish subscribe"
+      ],
+      "keywords_ro": [
+        "mqtt",
+        "broker mesaje",
+        "publicare abonare"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:mqtt#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/MQTT",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=MQTT",
+      "revision": {
+        "sha256": "1362be80dcbfa4129012f4714d20d4cd2b0959fcbee43301e9dd0a5d53fa7f2a",
+        "etag": null,
+        "last_modified": null,
+        "id": 1381247084,
+        "timestamp": "2026-10-21T00:07:46Z",
+        "title": "MQTT"
+      },
+      "retrieved": "2026-11-07T23:18:26.358481+00:00"
+    },
+    {
+      "id": "ip-address",
+      "title": "IP address",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/IP_address",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, IP address; see source page history",
+      "language": "en",
+      "codes": [],
+      "keywords_en": [
+        "ip address",
+        "internet protocol address"
+      ],
+      "keywords_ro": [
+        "adresă ip",
+        "adrese ip"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:ip-address#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/IP_address",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=IP+address",
+      "revision": {
+        "sha256": "1d1a97df7ee6cd2295e0a13f6f7381a318945e90c3f4270507d513a5e22836a9",
+        "etag": null,
+        "last_modified": null,
+        "id": 1382744491,
+        "timestamp": "2026-10-30T01:57:14Z",
+        "title": "IP address"
+      },
+      "retrieved": "2026-11-07T23:19:37.459457+00:00"
+    },
+    {
+      "id": "subnetwork",
+      "title": "Subnetwork",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Subnetwork",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Subnetwork; see source page history",
+      "language": "en",
+      "codes": [],
+      "keywords_en": [
+        "subnetwork",
+        "subnet",
+        "cidr",
+        "subnet mask"
+      ],
+      "keywords_ro": [
+        "subrețea",
+        "mască de rețea",
+        "prefix cidr"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:subnetwork#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Subnetwork",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Subnetwork",
+      "revision": {
+        "sha256": "e3ff93f2d7d357829d68d02b3a6757198284f7274bbcc9193315e90e71f5d4af",
+        "etag": null,
+        "last_modified": null,
+        "id": 1378210635,
+        "timestamp": "2026-10-03T14:13:13Z",
+        "title": "Subnet"
+      },
+      "retrieved": "2026-11-07T23:19:39.090866+00:00"
+    },
+    {
+      "id": "firewall",
+      "title": "Firewall (computing)",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Firewall_(computing)",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Firewall (computing); see source page history",
+      "language": "en",
+      "codes": [],
+      "keywords_en": [
+        "firewall",
+        "packet filtering"
+      ],
+      "keywords_ro": [
+        "firewall",
+        "filtrare pachete",
+        "paravan de protecție"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:firewall#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Firewall_(computing)",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Firewall+%28computing%29",
+      "revision": {
+        "sha256": "14f353599151ba1a57bcd498bde6edad64f9b015ec2367fe001c22fee751fa52",
+        "etag": null,
+        "last_modified": null,
+        "id": 1379330361,
+        "timestamp": "2026-10-09T08:10:46Z",
+        "title": "Firewall (computing)"
+      },
+      "retrieved": "2026-11-07T23:20:56.535178+00:00"
+    },
+    {
+      "id": "nat",
+      "title": "Network address translation",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Network_address_translation",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Network address translation; see source page history",
+      "language": "en",
+      "codes": [],
+      "keywords_en": [
+        "nat",
+        "network address translation"
+      ],
+      "keywords_ro": [
+        "nat",
+        "translatare adrese",
+        "traducere adrese"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:nat#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Network_address_translation",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Network+address+translation",
+      "revision": {
+        "sha256": "905119a8816316888ed675d0b55460c64183705b4a9eb1f8b51b32184cb4c632",
+        "etag": null,
+        "last_modified": null,
+        "id": 1382238062,
+        "timestamp": "2026-10-27T13:55:20Z",
+        "title": "Network address translation"
+      },
+      "retrieved": "2026-11-07T23:19:53.514987+00:00"
+    },
+    {
+      "id": "mdns",
+      "title": "Multicast DNS",
+      "kind": "wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Multicast_DNS",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Wikipedia contributors, Multicast DNS; see source page history",
+      "language": "en",
+      "codes": [],
+      "keywords_en": [
+        "mdns",
+        "multicast dns",
+        "local name resolution"
+      ],
+      "keywords_ro": [
+        "mdns",
+        "rezolvare nume locale",
+        "dns multicast"
+      ],
+      "status": "ok",
+      "passage_ids": [
+        "kb:mdns#1"
+      ],
+      "source_url": "https://en.wikipedia.org/wiki/Multicast_DNS",
+      "fetched_url": "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&prop=extracts%7Crevisions&explaintext=1&exsectionformat=plain&rvprop=ids%7Ctimestamp&redirects=1&titles=Multicast+DNS",
+      "revision": {
+        "sha256": "66529c99e64bca14ca5e7b7629b8b36738d041bbd3d42984aeab2404d87d666b",
+        "etag": null,
+        "last_modified": null,
+        "id": 1380339161,
+        "timestamp": "2026-10-15T03:37:54Z",
+        "title": "Multicast DNS"
+      },
+      "retrieved": "2026-11-07T23:19:54.810620+00:00"
+    }
+  ],
+  "passages": [
+    {
+      "id": "kb:telnet#1",
+      "text": "Telnet (sometimes stylized TELNET) is a client-server application protocol that provides access to virtual terminals of remote systems on local area networks or the Internet. It is a protocol for bidirectional 8-bit communications. Its main goal was to connect terminal devices and terminal-oriented processes. The name \"Telnet\" refers to two things: a protocol specifying how two parties are to communicate and a software application that implements the protocol as a service. User data is interspersed in-band with Telnet control information in an 8-bit byte oriented data connection over the Transmission Control Protocol (TCP). Telnet transmits all information including usernames and passwords in plaintext so it is not recommended for security-sensitive applications such as remote management of routers. Telnet's use for this purpose has waned significantly in favor of SSH. Some extensions to Telnet which would provide encryption have been proposed. Description The telnet protocol is a client-server protocol that runs on a reliable connection-oriented transport. Most often, a telnet client connects over TCP to port 23 or 2323, where a Telnet server application is listening. The Telnet protocol abstracts any terminal as a Network Virtual Terminal (NVT). The client must simulate a NVT using the NVT codes when messaging the",
+      "document_id": "telnet",
+      "title": "Telnet",
+      "source_url": "https://en.wikipedia.org/wiki/Telnet",
+      "codes": [
+        "TELNET_OPEN"
+      ],
+      "keywords_en": [
+        "telnet",
+        "unencrypted remote login"
+      ],
+      "keywords_ro": [
+        "telnet",
+        "autentificare la distanță",
+        "text clar"
+      ]
+    },
+    {
+      "id": "kb:rdp#1",
+      "text": "Remote Desktop Protocol (RDP) is a proprietary protocol developed by Microsoft Corporation which provides a user with a graphical interface to connect to another computer over a network connection. The user employs RDP client software for this purpose, while the other computer must run RDP server software. Several clients exist for most versions of Microsoft Windows (including Windows Mobile but the support has ended), Linux (for example Remmina, Vinagre or rdesktop), Unix, macOS, iOS, Android, and other operating systems. RDP servers are built into the server and professional editions of Windows operating systems but not home editions; an RDP server for Unix and OS X also exists (for example xrdp). By default, the server listens on TCP port 3389 and UDP port 3389. Microsoft currently refers to their official RDP client software as Remote Desktop Connection, formerly \"Terminal Services Client\". The protocol is an extension of the ITU-T T.128 application sharing protocol. Microsoft makes some specifications public on their website. History Every server and professional version of Microsoft Windows from Windows XP onward includes an installed Remote Desktop Connection (RDC) (\"Terminal Services\") client (mstsc.exe) whose version is determined by",
+      "document_id": "rdp",
+      "title": "Remote Desktop Protocol",
+      "source_url": "https://en.wikipedia.org/wiki/Remote_Desktop_Protocol",
+      "codes": [
+        "RDP_EXPOSED"
+      ],
+      "keywords_en": [
+        "rdp",
+        "remote desktop"
+      ],
+      "keywords_ro": [
+        "rdp",
+        "desktop la distanță",
+        "acces de la distanță"
+      ]
+    },
+    {
+      "id": "kb:ftp#1",
+      "text": "The File Transfer Protocol (FTP) is a standard communication protocol used for the transfer of computer files from a server to a client over a computer network. FTP is built on a client–server model architecture using separate control and data connections between the client and the server. FTP users may authenticate themselves with a plain-text sign-in protocol, normally in the form of a username and password, but can connect anonymously if the server is configured to allow it. For secure transmission that protects the username and password and encrypts the content, FTP is often secured with SSL/TLS (FTPS) or replaced with SSH File Transfer Protocol (SFTP). The first FTP client applications were command-line programs developed before operating systems had graphical user interfaces, and are still shipped with most Windows and Unix-like operating systems. Many dedicated FTP clients and automation utilities have since been developed for desktops, servers, mobile devices, and hardware, and FTP has been incorporated into productivity applications such as HTML editors and file managers. An FTP client used to be commonly integrated in web browsers, where file servers are browsed with the URI scheme \"ftp://\". In 2021, FTP support was",
+      "document_id": "ftp",
+      "title": "File Transfer Protocol",
+      "source_url": "https://en.wikipedia.org/wiki/File_Transfer_Protocol",
+      "codes": [
+        "FTP_CLEARTEXT"
+      ],
+      "keywords_en": [
+        "ftp",
+        "file transfer"
+      ],
+      "keywords_ro": [
+        "ftp",
+        "transfer fișiere",
+        "parole necriptate"
+      ]
+    },
+    {
+      "id": "kb:smb#1",
+      "text": "Server Message Block (SMB) is a communication protocol used to share files, printers, serial ports, and miscellaneous communications between nodes on a network. On Windows, the SMB implementation consists of two Windows services: \"Server\" (ID: LanmanServer) and \"Workstation\" (ID: LanmanWorkstation). It uses NTLM or Kerberos protocols for user authentication. It also provides an authenticated inter-process communication (IPC) mechanism. SMB was originally developed in 1983 by Barry A. Feigenbaum at IBM to share access to files and printers across a network of systems running IBM PC DOS. In 1987, Microsoft and 3Com implemented SMB in LAN Manager for OS/2, at which time SMB used the NetBIOS service atop the NetBIOS Frames protocol as its underlying transport. Later, Microsoft implemented SMB in Windows NT 3.1 and has been updating it ever since, adapting it to work with newer underlying transports: TCP/IP and NetBT. SMB over QUIC was introduced in Windows Server 2022. In 1996, Microsoft published a version of SMB 1.0 with minor modifications under the Common Internet File System (CIFS ) moniker. CIFS was compatible with even the earliest incarnation of SMB, including LAN Manager's. It supports symbolic links, hard links, and larger file size,",
+      "document_id": "smb",
+      "title": "Server Message Block",
+      "source_url": "https://en.wikipedia.org/wiki/Server_Message_Block",
+      "codes": [
+        "SMB_EXPOSED"
+      ],
+      "keywords_en": [
+        "smb",
+        "server message block",
+        "file sharing"
+      ],
+      "keywords_ro": [
+        "smb",
+        "partajare fișiere",
+        "foldere partajate"
+      ]
+    },
+    {
+      "id": "kb:mqtt#1",
+      "text": "MQTT is a lightweight, publish–subscribe, machine-to-machine network protocol for message queueing/message queueing services. It is designed for connections with remote locations that have devices with resource constraints or limited network bandwidth, such as in the Internet of things (IoT). It must run over a transport protocol that provides ordered, lossless, bi-directional connections—typically, TCP/IP. It is an open OASIS standard and an ISO recommendation (ISO/IEC 20922). History Andy Stanford-Clark (IBM) and Arlen Nipper (then working for Arcom Control Systems) authored the first version of the protocol in 1999. It was used to monitor oil pipelines within the SCADA industrial control system. The goal was to have a protocol that is bandwidth-efficient, lightweight and uses little battery power, because the devices were connected via satellite link, which was extremely expensive at that time. Historically, the \"MQ\" in \"MQTT\" came from the IBM MQ (then \"MQSeries\") product line, where it stands for \"Message Queue\". However, the protocol provides publish-and-subscribe messaging (no queues, in spite of the name). In the specification opened by IBM, as version 3.1, the protocol was referred to as \"MQ Telemetry Transport\". Subsequent",
+      "document_id": "mqtt",
+      "title": "MQTT",
+      "source_url": "https://en.wikipedia.org/wiki/MQTT",
+      "codes": [
+        "MQTT_EXPOSED"
+      ],
+      "keywords_en": [
+        "mqtt",
+        "message broker",
+        "publish subscribe"
+      ],
+      "keywords_ro": [
+        "mqtt",
+        "broker mesaje",
+        "publicare abonare"
+      ]
+    },
+    {
+      "id": "kb:ip-address#1",
+      "text": "An Internet Protocol address (IP address) is a numerical label, such as 192.168.1.1 or 2001:0db8:0000:0000:0000:8a2e:0370:7334, that is assigned to a device connected to a computer network that uses the Internet Protocol for communication. IP addresses serve two main functions: network interface identification, and location addressing. Internet Protocol version 4 (IPv4) was the first standalone specification for the IP address, and has been in use since 1983. IPv4 addresses are defined as a 32-bit number, which later became too small to provide enough addresses as the internet grew, leading to IPv4 address exhaustion over the 2010s. Its designated successor, IPv6, uses 128 bits for the IP address, giving it a larger address space. Although IPv6 deployment has been ongoing since the mid-2000s, both IPv4 and IPv6 are still used side-by-side as of 2026, with IPv6 recently exceeding 50% globally after 18 years. IP addresses are usually displayed in a human-readable notation, but systems may use them in various different computer number formats. CIDR notation can also be used to designate how much of the address should be treated as a routing prefix. For example, 192.0.2.1/24 indicates that 24 significant bits of",
+      "document_id": "ip-address",
+      "title": "IP address",
+      "source_url": "https://en.wikipedia.org/wiki/IP_address",
+      "codes": [],
+      "keywords_en": [
+        "ip address",
+        "internet protocol address"
+      ],
+      "keywords_ro": [
+        "adresă ip",
+        "adrese ip"
+      ]
+    },
+    {
+      "id": "kb:subnetwork#1",
+      "text": "A subnet, or subnetwork, is a logical subdivision of an IP network. The practice of dividing a network into two or more networks is called subnetting. Computers that belong to the same subnet are addressed with an identical group of most-significant bits of their IP addresses. This results in the logical division of an IP address into two fields: the network number or routing prefix, and the rest field or host identifier. The rest field is an identifier for a specific host or network interface. The routing prefix may be expressed as the first address of a network, written in Classless Inter-Domain Routing (CIDR) notation, followed by a slash character (/), and ending with the bit-length of the prefix. For example, 198.51.100.0/24 is the prefix of the Internet Protocol version 4 network starting at the given address, having 24 bits allocated for the network prefix, and the remaining 8 bits reserved for host addressing. Addresses in the range 198.51.100.0 to 198.51.100.255 belong to this network, with 198.51.100.255 as the subnet broadcast address. The IPv6 address specification 2001:db8::/32 is a large address block with 296 addresses, having a 32-bit",
+      "document_id": "subnetwork",
+      "title": "Subnetwork",
+      "source_url": "https://en.wikipedia.org/wiki/Subnetwork",
+      "codes": [],
+      "keywords_en": [
+        "subnetwork",
+        "subnet",
+        "cidr",
+        "subnet mask"
+      ],
+      "keywords_ro": [
+        "subrețea",
+        "mască de rețea",
+        "prefix cidr"
+      ]
+    },
+    {
+      "id": "kb:firewall#1",
+      "text": "In computing, a firewall is a network security system that monitors and controls incoming and outgoing network traffic based on configurable security rules. A firewall typically establishes a barrier between a trusted network and an untrusted network, such as the Internet or between several VLANs. Firewalls can be categorized as network-based or host-based. History The term firewall originally referred to a wall to confine a fire within a line of adjacent buildings. Later uses refer to similar structures, such as the metal sheet separating the engine compartment of a vehicle or aircraft from the passenger compartment. The term was applied in the 1980s to network technology that emerged when the Internet was fairly new in terms of its global use and connectivity. The predecessors to firewalls for network security were routers used in the 1980s. Because they already segregated networks, routers could filter packets crossing them. Before it was used in real-life computing, the term appeared in John Badham's 1983 computer‑hacking movie WarGames, spoken by the bearded and bespectacled programmer named Paul Richter, which possibly inspired its later use. One of the earliest commercially successful firewall and network address translation (NAT)",
+      "document_id": "firewall",
+      "title": "Firewall (computing)",
+      "source_url": "https://en.wikipedia.org/wiki/Firewall_(computing)",
+      "codes": [],
+      "keywords_en": [
+        "firewall",
+        "packet filtering"
+      ],
+      "keywords_ro": [
+        "firewall",
+        "filtrare pachete",
+        "paravan de protecție"
+      ]
+    },
+    {
+      "id": "kb:nat#1",
+      "text": "Network address translation (NAT) is a method of mapping an IP address space into another by modifying network address information in the IP header of packets while they are in transit across a traffic routing device. The technique was initially used to bypass the need to assign a new address to every host when a network was moved, or when the upstream Internet service provider was replaced but could not route the network's address space. It is a popular and essential tool in conserving global address space in the face of IPv4 address exhaustion. One Internet-routable IP address of a NAT gateway can be used for an entire private network. As network address translation modifies the IP address information in packets, NAT implementations may vary in their specific behavior in various addressing cases and their effect on network traffic. Vendors of equipment containing NAT implementations do not commonly document the specifics of NAT behavior. History Internet Protocol version 4 (IPv4) uses 32-bit addresses, capable of uniquely addressing about 4.3 billion devices on the network. By 1992, it became evident that this would not be enough. The 1994 RFC 1631 describes NAT as a \"short-term solution\" to the",
+      "document_id": "nat",
+      "title": "Network address translation",
+      "source_url": "https://en.wikipedia.org/wiki/Network_address_translation",
+      "codes": [],
+      "keywords_en": [
+        "nat",
+        "network address translation"
+      ],
+      "keywords_ro": [
+        "nat",
+        "translatare adrese",
+        "traducere adrese"
+      ]
+    },
+    {
+      "id": "kb:mdns#1",
+      "text": "Multicast DNS (mDNS) is a computer networking protocol that resolves hostnames to IP addresses within small networks that do not include a local name server. It is a zero-configuration service, using essentially the same programming interfaces, packet formats and operating semantics as unicast Domain Name System (DNS). It was designed to work as either a stand-alone protocol or compatible with standard DNS servers. mDNS uses IP multicast and User Datagram Protocol (UDP) packets and is implemented by Apple, Microsoft and most Linux distributions. mDNS can work in conjunction with DNS Service Discovery (DNS-SD), a companion zero-configuration networking technique specified separately in RFC 6763. History Multicast DNS was first proposed by Bill Woodcock and Bill Manning in the IETF in 2000, and was eventually published as standards-track RFC 6762 by Stuart Cheshire and Marc Krochmal thirteen years later. Implementations mDNS is implemented by Apple Bonjour, Microsoft since Windows 10 and by open-source Avahi software packages included in most Linux distributions. Although the Windows 10 implementation in earlier releases (version 1703) was limited to discovering networked printers, screen mirroring devices, wireless",
+      "document_id": "mdns",
+      "title": "Multicast DNS",
+      "source_url": "https://en.wikipedia.org/wiki/Multicast_DNS",
+      "codes": [],
+      "keywords_en": [
+        "mdns",
+        "multicast dns",
+        "local name resolution"
+      ],
+      "keywords_ro": [
+        "mdns",
+        "rezolvare nume locale",
+        "dns multicast"
+      ]
+    }
+  ]
+}

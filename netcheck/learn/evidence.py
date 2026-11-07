@@ -5,13 +5,22 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_evidence(analysis: dict[str, Any], device_ip: str | None = None) -> list[dict[str, Any]]:
+def build_evidence(analysis: dict[str, Any], device_ip: str | None = None, *, lang: str = "ro") -> list[dict[str, Any]]:
+    en = lang == "en"
+    label = "Device" if en else "Dispozitiv"
+    no_ports = "no ports" if en else "niciun port"
+    none = "none" if en else "niciunul"
+    port_label = "ports" if en else "porturi"
+    findings_label = "findings" if en else "finding-uri"
+    severity_label = "severity" if en else "severitate"
+    device_label = "device" if en else "dispozitiv"
+    score_label = "Network score" if en else "Scorul rețelei"
     devices = analysis.get("devices", [])
     findings = analysis.get("findings", [])
-    labels = {device["ip"]: f"Dispozitiv {chr(65 + index)}" for index, device in enumerate(devices)}
+    labels = {device["ip"]: f"{label} {index + 1}" for index, device in enumerate(devices)}
     selected = [device for device in devices if device_ip is None or device["ip"] == device_ip]
     evidence: list[dict[str, Any]] = [
-        {"id": "score", "text": f"Scorul rețelei: {analysis.get('network_score', 'necunoscut')} / 100."}
+        {"id": "ev:score", "text": f"{score_label}: {analysis.get('network_score', 'unknown' if en else 'necunoscut')} / 100."}
     ]
     for device in selected:
         ports = [
@@ -26,8 +35,8 @@ def build_evidence(analysis: dict[str, Any], device_ip: str | None = None) -> li
                 "id": f"ev:{device['ip']}:device",
                 "text": (
                     f"{labels[device['ip']]} ({device.get('device_type', 'unknown')}), "
-                    f"IP {device['ip']}; porturi: {', '.join(ports) or 'niciun port'}; "
-                    f"finding-uri: {', '.join(f['code'] for f in device_findings) or 'niciunul'}."
+                    f"IP {device['ip']}; {port_label}: {', '.join(ports) or no_ports}; "
+                    f"{findings_label}: {', '.join(f['code'] for f in device_findings) or none}."
                 ),
             }
         )
@@ -38,8 +47,8 @@ def build_evidence(analysis: dict[str, Any], device_ip: str | None = None) -> li
             {
                 "id": f"ev:{finding['ip']}:{finding.get('port') or 'device'}",
                 "text": (
-                    f"IP {finding['ip']}, port {finding.get('port') or 'dispozitiv'}, "
-                    f"finding {finding['code']}, severitate {finding['severity']}."
+                    f"IP {finding['ip']}, port {finding.get('port') or device_label}, "
+                    f"finding {finding['code']}, {severity_label} {finding['severity']}."
                 ),
             }
         )

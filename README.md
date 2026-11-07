@@ -1,89 +1,89 @@
-# Smarthack / Netcheck
+# Smarthack / NetCheck
 
-Prototip pentru tema **Secure Networks, Simply Explained**: scanarea unei
-rețele proprii, explicarea riscurilor și verificarea remedierilor.
+Prototype for the **Secure Networks, Simply Explained** challenge: scanning
+an authorized network, explaining security risks, and verifying remediation.
 
-În prezent sunt implementate detectarea rețelei, autorizarea laboratorului,
-scannerul, analiza offline a XML-urilor Nmap, findings, scorul, istoricul
-SQLite, accesul prin CLI/API local și interfața web. Starea pe cerințe și
-pașii rămași sunt în [starea proiectului](docs/project-status.md).
+The project currently includes network detection, lab authorization, the
+scanner, offline Nmap XML analysis, findings, scoring, SQLite history, local
+CLI/API access, and a web interface. See the [project status](docs/project-status.md)
+for requirements and remaining work.
 
-## Instalare
+## Installation
 
-Necesită Python 3.10+. Din rădăcina repository-ului, instalați într-o singură
-comandă:
+Python 3.10+ is required. From the repository root, run:
 
 ```sh
 python scripts/setup.py
 ```
 
-Pe macOS, dacă executabilul este disponibil doar ca `python3`, folosiți
-`python3 scripts/setup.py`. În PowerShell pe Windows folosiți `py -3
-scripts/setup.py`. Scriptul creează `.venv`, instalează
-`requirements-dev.txt` și afișează dacă Nmap lipsește.
+On macOS, use `python3 scripts/setup.py` if only `python3` is available. In
+Windows PowerShell, use `py -3 scripts/setup.py`. The script creates `.venv`,
+installs `requirements-dev.txt`, and reports whether Nmap is missing.
 
-`requirements-dev.txt` include dependențele aplicației și testele. Nmap se
-instalează separat, cu baza sa `nmap-services`; nu este necesar pentru
-simpla detectare a rețelei. Pentru Docker/HTTP de laborator, urmați
-[instrucțiunile serviciilor](lab/services/README.md).
+`requirements-dev.txt` contains the application and test dependencies. Nmap
+must be installed separately, including its `nmap-services` database; it is
+not required for network detection alone. For the lab Docker/HTTP services,
+follow the [service instructions](lab/services/README.md).
 
-Comenzile de mai jos folosesc `python` din mediul virtual activat
-(`source .venv/bin/activate` pe macOS/Linux). Pe Windows puteți înlocui
-`python` cu `.\.venv\Scripts\python.exe`, fără activarea mediului.
+The commands below use `python` from the activated virtual environment
+(`source .venv/bin/activate` on macOS/Linux). On Windows, replace `python`
+with `.\.venv\Scripts\python.exe` without activating the environment.
 
-## Detectare și autorizare
+## Network Detection and Authorization
 
-Conectați scannerul numai la laboratorul echipei, apoi:
+Connect the scanner only to the team lab, then run:
 
 ```sh
 python -m netcheck network
 python -m netcheck configure-lab --allow 172.20.10.0/28 --confirm
 ```
 
-`--allow` este opțional: fără el, CLI propune subnetul detectat, îl afișează,
-dar necesită în continuare `--confirm` explicit:
+`--allow` is optional. Without it, the CLI proposes the detected subnet but
+still requires explicit `--confirm`:
 
 ```sh
 python -m netcheck configure-lab
-# Propunere subnet detectat / Detected subnet proposal: 172.20.10.0/28
+# Detected subnet proposal: 172.20.10.0/28
 python -m netcheck configure-lab --confirm
 ```
 
-Verificați propunerea și faptul că aveți permisiunea de scanare înainte de
-confirmare. Detectarea IP nu dovedește proprietatea rețelei.
-`configure-lab` salvează allowlist-ul și configurația rețelei în
-`lab/network.json`, exclus din Git, și refuză suprascrierea. Pentru o nouă
-configurație, eliminați deliberat fișierul vechi și reautorizați laboratorul.
-Opțiunea globală `--config CALE` se pune înaintea subcomenzii.
+Verify the proposal and confirm that you have permission to scan before
+proceeding. Detecting an IP address does not prove network ownership.
+`configure-lab` stores the allowlist and network configuration in
+`lab/network.json`, which is excluded from Git, and refuses to overwrite an
+existing configuration. To create a new configuration, deliberately remove
+the old file and authorize the lab again. The global `--config PATH` option
+must appear before the subcommand.
 
-Scanarea acceptă numai ținte IPv4/CIDR din intervalele private RFC1918,
-cu maximum 256 de adrese, incluse integral în allowlist și LAN-ul autorizat.
-Sunt refuzate IP-urile publice, țintele din afara allowlist-ului și subneturile
-mai mari decât `/24`; confirmarea este obligatorie. Schimbarea configurației
-rețelei provoacă refuz, inclusiv schimbarea IP-ului scannerului prin DHCP.
-CLI și API folosesc aceeași funcție de serviciu.
+Scanning accepts only private RFC1918 IPv4/CIDR targets with at most 256
+addresses, fully contained in the allowlist and authorized LAN. Public IPs,
+targets outside the allowlist, and subnets larger than `/24` are rejected;
+confirmation is mandatory. A network configuration change, including a DHCP
+change to the scanner IP, causes the request to be rejected. CLI and API use
+the same service function.
 
-Pentru o demonstrație offline a refuzurilor, fără Nmap:
+To demonstrate authorization refusals without Nmap:
 
 ```sh
 python -m netcheck demo-refusals
 ```
 
-Comanda demonstrează refuzul unui IP public, al unei ținte dintr-o rețea Wi-Fi
-de locație (`10.240.0.5` și `10.240.0.0/16`) și al lipsei `--confirm`, apoi
-confirmă prin cod că `subprocess` nu a fost apelat.
+The command demonstrates rejection of a public IP, a venue Wi-Fi target
+(`10.240.0.5` and `10.240.0.0/16`), and a missing `--confirm`, then verifies
+that `subprocess` was never called.
 
-## Scanare live și API local
+## Live Scanning and Local API
 
 ```sh
 python -m netcheck scan 172.20.10.3 --confirm
 python -m netcheck serve
 ```
 
-Execuția live folosește TCP SYN și UDP. Pe macOS, numai procesul Nmap este
-elevat prin wrapperul root-owned, cu argumente validate strict; nu este permis
-`NOPASSWD` pentru binarul Nmap complet, deoarece `--script` poate executa cod
-ca root. Instalați mecanismul (manual, cu cont administrator) astfel:
+Live execution uses TCP SYN and UDP scanning. On macOS, only the Nmap process
+is elevated through a root-owned wrapper with strictly validated arguments.
+`NOPASSWD` for the complete Nmap binary is not allowed because `--script` can
+execute code as root. Install the mechanism manually with an administrator
+account:
 
 ```sh
 sudo sh scripts/macos/install-nmap-privileges.sh
@@ -92,87 +92,90 @@ python -m netcheck scan 172.20.10.3 --confirm
 sudo sh scripts/macos/uninstall-nmap-privileges.sh
 ```
 
-Instalarea creează `/var/tmp/netcheck-scans`; wrapperul acceptă numai ținte
-IPv4/CIDR și fișiere XML UUID în acel folder. Nu rulați CLI-ul, analizorul sau
-serverul web cu `sudo`; `sudo -n` este folosit doar pentru wrapper.
-Configurația live macOS este implementată, dar **neverificată live** până la
-parcurgerea pașilor manuali.
+Installation creates `/var/tmp/netcheck-scans`; the wrapper accepts only
+IPv4/CIDR targets and UUID XML files in that directory. Do not run the CLI,
+analyzer, or web server with `sudo`; `sudo -n` is used only for the wrapper.
+The macOS live configuration is implemented but **not live-verified** until
+the manual steps are completed.
 
-Pe Windows, documentația oficială Nmap spune că Administrator nu este necesar
-când Npcap este încărcat. Instalați Nmap cu Npcap din
-[documentația Nmap](https://nmap.org/book/inst-windows.html) și verificați pe
-laptopul Windows comanda `nmap -n -sS -sU -p 53 172.20.10.2` (fără
-Administrator). Dacă Nmap raportează Npcap/privilegii lipsă, aplicația
-returnează un mesaj RO/EN clar și HTTP 502/CLI 1. Detaliile despre opțiunile
-Npcap rămân de confirmat manual pe laptopul Windows.
+According to the official Nmap documentation, Windows does not require
+Administrator when Npcap is loaded. Install Nmap with Npcap from the
+[Nmap documentation](https://nmap.org/book/inst-windows.html) and verify on
+the Windows laptop:
 
-Scannerul selectează cel puțin top 1.000 TCP din baza locală `nmap-services`
-(inclusiv egalitățile la frecvența de pe poziția 1.000), plus exact UDP
-53, 123, 161, 1900 și 5353. Folosește identificarea serviciilor/versiunilor,
-`http-title`, `-n` și `--max-rate 100`. Scripturile au timeout de 30 secunde;
-procesul are timeout de 300 secunde. Rezultatul este verificat ca XML Nmap
-complet, cu parsare sigură și limită de 10 MB. Un timeout este un eșec,
-**nu o dovadă că cerința de scanare a unui /24 în sub cinci minute este atinsă**.
+```text
+nmap -n -sS -sU -p 53 172.20.10.2
+```
 
-`scan` returnează JSON și scrie XML într-un fișier unic din `scans/` (Windows)
-sau `/var/tmp/netcheck-scans` (macOS), ori în `--output-dir CALE` pentru
-execuții neprivilegiate/test. XML-urile brute pot conține date despre dispozitive;
-folderul este local și exclus din Git. Comanda `scan` raportează rezultatul
-execuției Nmap; API-ul și comanda `analyze` pot apoi parsa XML-ul, calcula
-findings și scorul.
+If Nmap reports missing Npcap or privileges, the application returns a clear
+Romanian/English message and HTTP 502 or CLI exit code 1. Npcap options still
+require manual verification on the Windows laptop.
 
-O singură scanare poate rula simultan prin serviciu în același checkout,
-inclusiv între procese CLI/API. Blocarea folosește `.netcheck-scan.lock`,
-exclus din Git; fișierul poate rămâne pe disc după oprire, dar blocarea este
-eliberată de sistem. Nu ștergeți fișierul în timpul execuției.
+The scanner selects at least the top 1,000 TCP ports from the local
+`nmap-services` database, including ties at the 1,000th frequency, plus
+exactly UDP ports 53, 123, 161, 1900, and 5353. It uses service/version
+detection, `http-title`, `-n`, and `--max-rate 100`. Scripts have a 30-second
+timeout and the process has a 300-second timeout. The result is checked as
+complete Nmap XML with secure parsing and a 10 MB limit. A timeout is a
+failure, **not proof that scanning a `/24` in under five minutes was achieved**.
 
-`serve` ascultă exclusiv pe `127.0.0.1:8000`. API-ul este destinat utilizării
-locale, nu expunerii în rețea. Documentația interactivă este la `/docs`.
-Aceasta nu înlocuiește interfața pentru utilizator cerută de hackathon.
+`scan` returns JSON and writes XML to a unique file in `scans/` on Windows or
+`/var/tmp/netcheck-scans` on macOS, or to `--output-dir PATH` for unprivileged
+or test runs. Raw XML may contain device data; the folder is local and
+excluded from Git. The `scan` command reports Nmap execution; the API and
+`analyze` command can then parse the XML and calculate findings and scores.
 
-### Laborator
+Only one scan may run at a time through the service in the same checkout,
+including across CLI/API processes. The lock uses `.netcheck-scan.lock`,
+which is excluded from Git. The file may remain after shutdown, but the lock
+is released by the operating system. Do not delete it during execution.
 
-Pentru pornirea serviciilor și capturile BEFORE/AFTER urmați
-[instrucțiunile laboratorului](lab/README.md) și
-[serviciile laboratorului](lab/services/README.md). Variabilele
-`LAB_BIND_IP` și `LAB_DB_PASSWORD` sunt doar pentru `lab/services`; nu sunt
-setări citite de aplicația Netcheck și nu trebuie să conțină valori reale în
-repository.
+`serve` listens only on `127.0.0.1:8000`. The API is intended for local use,
+not network exposure. Interactive API documentation is available at `/docs`.
+It does not replace the user interface required by the hackathon.
 
-### Oprire
+### Laboratory
 
-Opriți `serve` sau o scanare CLI cu `Ctrl+C`. Pentru serviciile de laborator,
-urmați secțiunea de oprire din [lab/services/README.md](lab/services/README.md).
-Nu ștergeți XML-urile BEFORE/AFTER; ele sunt rezultate de experiment.
+For starting services and collecting BEFORE/AFTER captures, follow the
+[laboratory instructions](lab/README.md) and
+[laboratory services](lab/services/README.md). `LAB_BIND_IP` and
+`LAB_DB_PASSWORD` are used only by `lab/services`; they are not settings read
+by the NetCheck application and must not contain real values in the repository.
 
-### Analiză de fișiere
+### Shutdown
 
-Analiza offline nu pornește Nmap și lucrează numai cu XML-uri existente:
+Stop `serve` or a CLI scan with `Ctrl+C`. For laboratory services, follow the
+shutdown section in [lab/services/README.md](lab/services/README.md).
+Do not delete BEFORE/AFTER XML files; they are experiment results.
+
+### File Analysis
+
+Offline analysis does not start Nmap and works only with existing XML files:
 
 ```sh
 python -m netcheck analyze tests/validation --out output
 ```
 
-Pentru fiecare XML, aplicația parsează dispozitivele și porturile, aplică
-regulile, calculează scorul și scrie:
+For each XML file, the application parses devices and ports, applies the
+rules, calculates the score, and writes:
 
-- `output/findings.csv` — fișier, IP, port, cod finding și severitate;
-- `output/scores.csv` — fișier și scorul rețelei sau `ERROR` pentru XML invalid.
+- `output/findings.csv` — file, IP, port, finding code, and severity;
+- `output/scores.csv` — file and network score, or `ERROR` for invalid XML.
 
-Rezultatul intern include și dispozitivele, MAC-uri mascate, tipuri estimate
-și finding-ul cu cel mai mare risc.
+The internal result also includes devices, masked MAC addresses, estimated
+device types, and the highest-risk finding.
 
-### Istoric și interfață
+### History and Web Interface
 
-Analizele importate prin API și scanările live reușite pot fi salvate local în
-`netcheck.db`. API-ul oferă listarea scanărilor, citirea unei scanări,
-compararea a două scanări și ștergerea istoricului. Serverul local servește și
-interfața web din `netcheck/web/`, care afișează scorul, dispozitivele,
-findings, pașii de remediere și istoricul.
+Imported analyses and successful live scans can be saved locally in
+`netcheck.db`. The API provides scan listing, scan retrieval, comparison of
+two scans, and history deletion. The local server also serves the web
+interface from `netcheck/web/`, which displays the score, devices, findings,
+remediation steps, and history.
 
-### Verificarea secretelor
+### Secret Scanning
 
-Scripturile pentru gitleaks verifică atât working tree, cât și istoricul Git:
+The gitleaks scripts check both the working tree and Git history:
 
 ```sh
 sh scripts/macos/check-secrets.sh
@@ -182,41 +185,41 @@ sh scripts/macos/check-secrets.sh
 .\scripts\windows\check-secrets.ps1
 ```
 
-Rulați scriptul pe platforma respectivă după instalarea separată a gitleaks.
+Run the script for the relevant platform after installing gitleaks separately.
 
-- `GET /api/network`: detectare fără scanare.
+- `GET /api/network`: detect the network without scanning.
 - `POST /api/scan`: `{"target":"172.20.10.3","confirm":true}`.
-- `confirm` acceptă numai booleanul `true`, nu `"true"` sau `1`.
-- Cererile nu pot modifica allowlist-ul, configurația, argumentele Nmap sau
-  calea de ieșire.
-- HTTP: 200 succes; 403 refuz de autorizare; 409 rețea indisponibilă/ambiguă
-  sau scanare deja în curs; 422 cerere invalidă; 500 eroare locală de fișier;
-  502 eșec al scanării, inclusiv Nmap absent sau XML invalid.
-- CLI: 0 succes; 1 eroare de execuție/fișier; 2 refuz, rețea indisponibilă,
-  scanare deja în curs sau argumente invalide.
+- `confirm` accepts only the boolean `true`, not `"true"` or `1`.
+- Requests cannot modify the allowlist, configuration, Nmap arguments, or
+  output path.
+- HTTP: 200 success; 403 authorization refusal; 409 unavailable/ambiguous
+  network or scan already in progress; 422 invalid request; 500 local file
+  error; 502 scan failure, including missing Nmap or invalid XML.
+- CLI: 0 success; 1 execution/file error; 2 refusal, unavailable network,
+  scan already in progress, or invalid arguments.
 
-## Verificare
+## Verification
 
 ```sh
 python -m pytest -q
 ```
 
-Testele normale simulează Nmap, fără trafic de scanare. Pentru citirea reală
-a configurației locale, tot fără scanare, setați `NETCHECK_NATIVE_TEST=1`.
-Pe macOS/Linux:
+Normal tests simulate Nmap and do not generate scan traffic. To read the
+actual local network configuration, still without scanning, set
+`NETCHECK_NATIVE_TEST=1`:
 
 ```sh
 NETCHECK_NATIVE_TEST=1 python -m pytest tests/test_network_native.py -q
 ```
 
-Detectarea a fost verificată pe Mac-ul laboratorului. Windows/Linux au
-backend-uri și teste simulate; workflow-ul CI este configurat, dar rezultatele
-sale nu sunt încă confirmate în această documentație. Verificați nativ fiecare
-platformă înainte de demonstrație. Detalii: [detectarea rețelei](docs/network-detection.md).
+Network detection has been verified on the laboratory Mac. Windows/Linux have
+backends and simulated tests; the CI workflow is configured, but each platform
+must still be verified natively before the demonstration. See
+[network detection](docs/network-detection.md) for details.
 
-Testele acoperă detectarea rețelei, guardrail-urile, scanarea simulată,
-parserul XML, findings, scorul, istoricul și endpoint-urile API.
+Tests cover network detection, guardrails, simulated scanning, XML parsing,
+findings, scoring, history, and API endpoints.
 
-Documentația laboratorului și captura HTTP preliminară sunt în
-[lab/README.md](lab/README.md). Pentru continuarea lucrului, consultați
-[cerințele încă deschise](docs/project-status.md).
+Laboratory documentation and the preliminary HTTP capture are available in
+[lab/README.md](lab/README.md). For remaining work, see the
+[project status](docs/project-status.md).

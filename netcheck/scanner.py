@@ -191,7 +191,15 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
         validated_target.target,
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+    except FileNotFoundError:
+        return ScanResult(
+            output_path,
+            success=False,
+            error="nmap nu este instalat / nmap is not installed",
+        )
+
     if result.returncode != 0:
         error = result.stderr.strip() or result.stdout.strip() or "Nmap failed."
         return ScanResult(output_path, success=False, error=error)

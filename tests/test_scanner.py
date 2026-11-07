@@ -7,6 +7,7 @@ import pytest
 
 from netcheck.scanner import (
     NetworkInfo,
+    ScanResult,
     ValidatedTarget,
     detect_network,
     run_scan,
@@ -118,3 +119,24 @@ def test_run_scan_builds_fixed_command_and_writes_xml(tmp_path):
     assert result.xml_path == output_path
     assert result.success is True
     assert result.error is None
+
+
+def test_run_scan_returns_failure_when_nmap_is_missing(tmp_path):
+    output_path = str(tmp_path / "scan.xml")
+    validated = validate_scan_request(
+        "172.20.10.3",
+        ["172.20.10.0/28"],
+        confirm=True,
+    )
+
+    with patch(
+        "netcheck.scanner.subprocess.run",
+        side_effect=FileNotFoundError,
+    ):
+        result = run_scan(validated, output_path)
+
+    assert result == ScanResult(
+        xml_path=output_path,
+        success=False,
+        error="nmap nu este instalat / nmap is not installed",
+    )

@@ -20,10 +20,11 @@ VENUE = NetworkInfo('en0', '192.168.1.2', 24, '192.168.1.0/24', '192.168.1.1')
 def environment(tmp_path):
     config = tmp_path / 'lab.json'
     output = tmp_path / 'scans'
+    host_system = platform.system()
     with patch('netcheck.scanner.detect_network', return_value=LAB) as detect, patch(
         'netcheck.scanner.subprocess.run'
     ) as process, patch(
-        'netcheck.scanner.platform.system', return_value=platform.system()
+        'netcheck.scanner.platform.system', return_value=host_system
     ), patch(
         'netcheck.scanner.port_specification', return_value='T:1-1000,U:53,123,161,1900,5353'
     ):

@@ -62,11 +62,31 @@ python -m netcheck scan 172.20.10.3 --confirm
 python -m netcheck serve
 ```
 
-**Execuția live necesită încă pregătirea și verificarea privilegiilor Nmap
-pe laptopul scanner.** Comanda folosește TCP SYN și UDP, care necesită
-privilegii/driver corespunzătoare. Nu rulați întregul CLI, analizor sau server
-web cu `sudo` pentru a ocoli acest lucru: privilegiile trebuie limitate la
-pasul Nmap. Integrarea completă a acestui mecanism rămâne de făcut.
+Execuția live folosește TCP SYN și UDP. Pe macOS, numai procesul Nmap este
+elevat prin wrapperul root-owned, cu argumente validate strict; nu este permis
+`NOPASSWD` pentru binarul Nmap complet, deoarece `--script` poate executa cod
+ca root. Instalați mecanismul (manual, cu cont administrator) astfel:
+
+```sh
+sudo sh scripts/macos/install-nmap-privileges.sh
+visudo -c
+python -m netcheck scan 172.20.10.3 --confirm
+sudo sh scripts/macos/uninstall-nmap-privileges.sh
+```
+
+Instalarea creează `/var/tmp/netcheck-scans`; wrapperul acceptă numai ținte
+IPv4/CIDR și fișiere XML UUID în acel folder. Nu rulați CLI-ul, analizorul sau
+serverul web cu `sudo`; `sudo -n` este folosit doar pentru wrapper.
+Configurația live macOS este implementată, dar **neverificată live** până la
+parcurgerea pașilor manuali.
+
+Pe Windows, documentația oficială Nmap spune că Administrator nu este necesar
+când Npcap este încărcat. Instalați Nmap cu Npcap din
+[documentația Nmap](https://nmap.org/book/inst-windows.html) și verificați pe
+laptopul Windows comanda `nmap -n -sS -sU -p 53 172.20.10.2` (fără
+Administrator). Dacă Nmap raportează Npcap/privilegii lipsă, aplicația
+returnează un mesaj RO/EN clar și HTTP 502/CLI 1. Detaliile despre opțiunile
+Npcap rămân de confirmat manual pe laptopul Windows.
 
 Scannerul selectează cel puțin top 1.000 TCP din baza locală `nmap-services`
 (inclusiv egalitățile la frecvența de pe poziția 1.000), plus exact UDP
@@ -76,8 +96,9 @@ procesul are timeout de 300 secunde. Rezultatul este verificat ca XML Nmap
 complet, cu parsare sigură și limită de 10 MB. Un timeout este un eșec,
 **nu o dovadă că cerința de scanare a unui /24 în sub cinci minute este atinsă**.
 
-`scan` returnează JSON și scrie XML într-un fișier unic din `scans/`
-(sau `--output-dir CALE`). XML-urile brute pot conține date despre dispozitive;
+`scan` returnează JSON și scrie XML într-un fișier unic din `scans/` (Windows)
+sau `/var/tmp/netcheck-scans` (macOS), ori în `--output-dir CALE` pentru
+execuții neprivilegiate/test. XML-urile brute pot conține date despre dispozitive;
 folderul este local și exclus din Git. Mascarea datelor în produsul final
 rămâne parte din implementarea analizorului/UI. Rezultatul scannerului nu
 conține încă findings sau scor.

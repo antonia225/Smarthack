@@ -59,13 +59,13 @@ def _cross_process_lock():
 
 def scan(target: str, *, confirm: bool = False,
          config_path: Path = scanner._DEFAULT_LAB_CONFIG,
-         output_dir: Path = Path("scans")) -> scanner.ScanResult:
+         output_dir: Path | None = None) -> scanner.ScanResult:
     if not _SCAN_LOCK.acquire(blocking=False):
         raise _busy()
     try:
         with _cross_process_lock():
             validated = scanner.validate_scan_request(target, confirm=confirm, config_path=config_path)
-            output_dir = Path(output_dir)
+            output_dir = scanner.default_scan_output_dir() if output_dir is None else Path(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
             # Each request owns its artifact; no user-controlled filename or overwrite.
             destination = output_dir / f"{uuid4().hex}.xml"

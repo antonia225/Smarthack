@@ -32,7 +32,7 @@ rezultatul așteptat.
 | FR-01 detectare | Implementată; suport nativ confirmat pe macOS |
 | FR-02 domeniu autorizat | Implementat și testat cu simulări; demonstrați refuzul IP-urilor publice, rețelei locației și lipsei confirmării |
 | FR-03 dispozitive | `parser.py` este schelet; trebuie IP, MAC mascat, vendor, hostname și estimare de tip |
-| FR-04 porturi/servicii | Comanda este implementată; execuția cu privilegiile corecte și acoperirea reală necesită verificare |
+| FR-04 porturi/servicii | Comanda și execuția limitată sunt implementate; scanarea reală și acoperirea necesită verificare |
 | FR-05 analiză offline | Neimplementată; parser sigur, erori explicite, fără acces la rețea |
 | FR-06 reguli | `rules.py` și catalogul sunt neimplementate; aplicați exact toate cele **15 coduri**, inclusiv `SSH_OPEN`, numai pe porturi `open` și după numele serviciului |
 | FR-07/08 explicații și remedieri | Catalogul este gol; maximum două propoziții și 1–5 pași concreți per finding, în RO/EN |
@@ -54,9 +54,12 @@ produs deja de motorul aplicației.
 
 ## Securitate, fiabilitate și utilizare
 
-- **Privilegii (NFR-04):** se execută privilegiat doar pasul Nmap. Mecanismul
-  de lansare cu privilegii limitate trebuie încă pregătit și testat. Nu rulați
-  FastAPI, UI-ul sau analizorul cu `sudo`.
+- **Privilegii (NFR-04):** implementat, dar **neverificat live**. Pe macOS,
+  sudoers permite numai wrapperul root-owned, nu binarul Nmap; wrapperul
+  validează ținta și calea XML și fixează comanda. Pe Windows se folosește
+  Nmap ne-elevat cu Npcap încărcat, conform documentației oficiale Nmap.
+  Nu rulați FastAPI, UI-ul sau analizorul cu `sudo`. Verificați manual pașii
+  și `visudo -c` pe laptopurile respective înainte de demonstrație.
 - **Intrări ostile (NFR-03):** verificarea rezultatului scannerului are parsare
   XML sigură și limită de 10 MB. Parserul offline și importul viitor trebuie
   să aplice aceleași protecții; UI-ul va trata bannerele ca text, fără HTML.

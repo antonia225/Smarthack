@@ -19,10 +19,10 @@ def main(argv: list[str] | None = None) -> int:
     scan = commands.add_parser("scan")
     scan.add_argument("target")
     scan.add_argument("--confirm", action="store_true")
-    scan.add_argument("--output-dir", type=Path, default=Path("scans"))
+    scan.add_argument("--output-dir", type=Path, default=None)
     serve = commands.add_parser("serve", help="Serve local API on 127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
-    serve.add_argument("--output-dir", type=Path, default=Path("scans"))
+    serve.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args(argv)
     try:
         if args.command == "network":

@@ -24,6 +24,8 @@ from netcheck.scan_xml import read_completed_scan
 _VALIDATION_KEY = secrets.token_bytes(32)
 _DEFAULT_LAB_CONFIG = Path(__file__).resolve().parent.parent / "lab" / "network.json"
 _PRIVATE_LANS = tuple(IPv4Network(cidr) for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+_MACOS_NMAP_WRAPPER = Path("/usr/local/libexec/netcheck-nmap-wrapper")
+_MACOS_SCAN_DIR = Path("/var/tmp/netcheck-scans")
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,10 @@ class ScanResult:
 
 class NetworkDetectionError(RuntimeError):
     """The local IPv4 network cannot be selected safely."""
+
+
+def default_scan_output_dir() -> Path:
+    return _MACOS_SCAN_DIR if platform.system() == "Darwin" else Path("scans")
 
 
 def _run_system_command(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -453,41 +459,57 @@ def run_scan(validated_target: ValidatedTarget, output_path: str) -> ScanResult:
 
     if Path(output_path).exists():
         return outcome(False, "Fișierul există deja / Output file already exists")
-    try:
-        ports = port_specification()
-    except (OSError, ValueError) as exc:
-        return outcome(False, str(exc))
-
-    command = [
-        "nmap",
-        "-n",
-        "-sS",
-        "-sU",
-        "-sV",
-        "--script",
-        "http-title",
-        "--script-timeout",
-        "30s",
-        "-p",
-        ports,
-        "--max-rate",
-        "100",
-        "-oX",
-        output_path,
-        validated_target.target,
-    ]
+    if platform.system() == "Darwin":
+        command = [
+            "sudo", "-n", str(_MACOS_NMAP_WRAPPER),
+            validated_target.target, str(Path(output_path).resolve()),
+        ]
+    else:
+        try:
+            ports = port_specification()
+        except (OSError, ValueError) as exc:
+            return outcome(False, str(exc))
+        command = [
+            "nmap", "-n", "-sS", "-sU", "-sV", "--script", "http-title",
+            "--script-timeout", "30s", "-p", ports, "--max-rate", "100",
+            "-oX", output_path, validated_target.target,
+        ]
 
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
         return outcome(False, "Scanarea a depășit 300 s; XML incomplet / Scan exceeded 300 s; incomplete XML")
     except OSError as exc:
-        return outcome(False, f"Nu pot porni Nmap / Cannot start Nmap: {exc}")
+        return outcome(False, _scan_error_message(str(exc), ""))
     if result.returncode != 0:
-        error = result.stderr.strip() or result.stdout.strip() or "Nmap failed."
+        error = _scan_error_message(result.stderr, result.stdout)
         return outcome(False, error)
     try:
         read_completed_scan(output_path)
     except (OSError, ValueError, ParseError, DefusedXmlException) as exc:
         return outcome(False, f"Rezultat XML invalid / Invalid XML result: {exc}")
     return outcome(True)
+
+
+def _scan_error_message(stderr: str, stdout: str) -> str:
+    """Translate common Nmap privilege/driver failures without hiding details."""
+    combined = f"{stderr}\n{stdout}".strip()
+    lowered = combined.lower()
+    if any(marker in lowered for marker in (
+        "npcap", "failed to open device", "dnet: failed", "requires root",
+        "must be run as root", "you need to be root", "permission denied",
+        "operation not permitted", "could not open a raw socket",
+        "password is required", "not allowed",
+    )):
+        return (
+            "Privilegii sau driver Npcap lipsă pentru -sS/-sU; pe macOS instalați "
+            "wrapperul și regula sudoers, iar pe Windows instalați/activați Npcap. "
+            "/ Missing privileges or Npcap driver for -sS/-sU; on macOS install "
+            "the wrapper and sudoers rule, and on Windows install/enable Npcap. "
+            f"Detaliu / Detail: {combined or 'Nmap privilege error'}"
+        )
+    if any(marker in lowered for marker in ("no such file", "not found", "cannot find")):
+        return "Nmap lipsește / Nmap is not installed"
+    if not combined:
+        return "Nmap a eșuat / Nmap failed"
+    return combined

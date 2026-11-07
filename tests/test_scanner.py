@@ -153,22 +153,8 @@ def test_run_scan_builds_fixed_command_and_writes_xml(_detect, tmp_path):
 
     def fake_run(command, **kwargs):
         expected = [
-            "nmap",
-            "-n",
-            "-sS",
-            "-sU",
-            "-sV",
-            "--script",
-            "http-title",
-            "--script-timeout",
-            "30s",
-            "-p",
-            "T:1-1000,U:53,123,161,1900,5353",
-            "--max-rate",
-            "100",
-            "-oX",
-            output_path,
-            "172.20.10.3",
+            "sudo", "-n", "/usr/local/libexec/netcheck-nmap-wrapper",
+            "172.20.10.3", output_path,
         ]
         assert command == expected
         assert kwargs == {"capture_output": True, "text": True, "timeout": 300}

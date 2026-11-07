@@ -31,6 +31,17 @@ def test_execution_errors_are_results(execution, error):
     assert result.duration_seconds >= 0
 
 
+def test_privilege_error_is_bilingual(execution):
+    target, path, process = execution
+    process.return_value = subprocess.CompletedProcess(
+        'nmap', 1, '', 'dnet: Failed to open device; Npcap is not installed'
+    )
+    result = scanner.run_scan(target, str(path))
+    assert not result.success
+    assert 'Privilegii' in result.error
+    assert 'Missing privileges' in result.error
+
+
 @pytest.mark.parametrize('content', [
     '', '<nmaprun>', '<nmaprun />',
     '<other><runstats><finished exit="success"/></runstats></other>',

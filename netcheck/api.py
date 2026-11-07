@@ -16,7 +16,7 @@ class ScanRequest(BaseModel):
 
 
 def create_app(*, config_path: Path = scanner._DEFAULT_LAB_CONFIG,
-               output_dir: Path = Path("scans")) -> FastAPI:
+               output_dir: Path | None = None) -> FastAPI:
     application = FastAPI(title="Netcheck local scanner")
     application.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -15,6 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from netcheck import history, scanner, service
 from netcheck.scoring import analyze_file
+from netcheck.catalog import CatalogError, attach_explanations
 
 
 class ScanRequest(BaseModel):
@@ -52,6 +53,15 @@ def create_app(
         allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
     )
 
+    @application.exception_handler(CatalogError)
+    async def catalog_error(request: Request, exc: CatalogError) -> JSONResponse:
+        return _error_response(
+            "catalog_unavailable",
+            "Catalogul de explicații lipsește sau este invalid. Restaurează catalog.json.",
+            "The explanation catalog is missing or invalid. Restore catalog.json.",
+            503,
+        )
+
     @application.get("/api/network")
     def network() -> dict[str, Any]:
         try:
@@ -63,6 +73,7 @@ def create_app(
     async def import_scan(
         request: Request,
         filename: str = Query("scan.xml"),
+        lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any]:
         content = await request.body()
         safe_name = Path(filename).name or "scan.xml"
@@ -70,19 +81,24 @@ def create_app(
             path = Path(directory) / safe_name
             path.write_bytes(content)
             analysis = analyze_file(path)
+        explained = attach_explanations(analysis, lang)
         scan_id = history.save_scan(analysis)
-        return {"scan_id": scan_id, **analysis}
+        return {"scan_id": scan_id, **explained}
 
     @application.get("/api/scans")
     def scans() -> list[dict[str, Any]]:
         return history.list_scans()
 
     @application.get("/api/scans/{scan_id}")
-    def scan(scan_id: int) -> dict[str, Any]:
+    def scan(
+        scan_id: int, lang: Literal["ro", "en"] | None = Query(None),
+    ) -> dict[str, Any]:
         try:
-            return history.get_scan(scan_id)
+            analysis = history.get_scan(scan_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Scan not found.") from exc
+
+        return attach_explanations(analysis, lang)
 
     @application.get("/api/compare")
     def compare_scans(
@@ -102,7 +118,9 @@ def create_app(
         return {"status": "ok"}
 
     @application.post("/api/scan", response_model=None)
-    def live_scan(request: ScanRequest) -> dict[str, Any] | JSONResponse:
+    def live_scan(
+        request: ScanRequest, lang: Literal["ro", "en"] | None = Query(None),
+    ) -> dict[str, Any] | JSONResponse:
         try:
             result = service.scan(
                 request.target,
@@ -142,8 +160,9 @@ def create_app(
                 500,
             )
 
+        explained = attach_explanations(analysis, lang)
         scan_id = history.save_scan(analysis)
-        return {"scan_id": scan_id, **asdict(result), **analysis}
+        return {"scan_id": scan_id, **asdict(result), **explained}
 
     web_directory = Path(__file__).with_name("web")
     if web_directory.is_dir():

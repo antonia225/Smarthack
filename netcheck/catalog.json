@@ -1,0 +1,336 @@
+{
+  "TELNET_OPEN": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Control prin Telnet",
+      "en": "Control through Telnet"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă Telnet, o metodă de control de la distanță care nu ascunde datele trimise. Parolele trimise astfel pot fi citite pe traseu.",
+      "en": "The device accepts Telnet, a way to control it remotely that does not hide transmitted data. Passwords sent this way may be read along the way."
+    },
+    "fix": {
+      "ro": [
+        "Dezactivează Telnet în setările dispozitivului.",
+        "Cere furnizorului IT o metodă de acces care protejează datele."
+      ],
+      "en": [
+        "Turn off Telnet in the device settings.",
+        "Ask your IT provider for an access method that protects data."
+      ]
+    }
+  },
+  "RDP_EXPOSED": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Acces la ecran de la distanță",
+      "en": "Remote screen access"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă RDP, o metodă de acces la ecran de pe alt calculator. Verifică cine are nevoie de acest acces.",
+      "en": "The device accepts RDP, a way to access its screen from another computer. Check who needs this access."
+    },
+    "fix": {
+      "ro": [
+        "Dezactivează accesul la ecran de la distanță dacă nu îl folosești.",
+        "Cere furnizorului IT să limiteze accesul la persoanele și dispozitivele aprobate."
+      ],
+      "en": [
+        "Turn off remote screen access if you do not use it.",
+        "Ask your IT provider to limit access to approved people and devices."
+      ]
+    }
+  },
+  "VNC_EXPOSED": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Control al ecranului prin VNC",
+      "en": "Screen control through VNC"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă VNC, o metodă de a vedea și controla ecranul de la distanță. Scanarea nu arată cine are voie să se conecteze.",
+      "en": "The device accepts VNC, a way to view and control the screen remotely. The scan does not show who is allowed to connect."
+    },
+    "fix": {
+      "ro": [
+        "Oprește VNC dacă nu îl folosești.",
+        "Cere furnizorului IT să permită accesul doar persoanelor și dispozitivelor aprobate."
+      ],
+      "en": [
+        "Turn off VNC if you do not use it.",
+        "Ask your IT provider to allow access only to approved people and devices."
+      ]
+    }
+  },
+  "DB_EXPOSED": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Acces la o bază de date",
+      "en": "Database access"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă conexiuni la o bază de date, adică un loc unde sunt păstrate informații. Scanarea nu arată dacă informațiile pot fi citite fără parolă.",
+      "en": "The device accepts connections to a database, a place where information is stored. The scan does not show whether the information can be read without a password."
+    },
+    "fix": {
+      "ro": [
+        "Cere furnizorului IT să verifice ce aplicații au nevoie de baza de date.",
+        "Cere-i să permită conexiuni doar de la acele aplicații."
+      ],
+      "en": [
+        "Ask your IT provider to check which applications need the database.",
+        "Ask them to allow connections only from those applications."
+      ]
+    }
+  },
+  "CAMERA_STREAM_EXPOSED": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Serviciu pentru transmisie video",
+      "en": "Video streaming service"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă RTSP, o metodă de transmisie video folosită și de camere. Scanarea nu arată dacă imaginile pot fi văzute fără parolă.",
+      "en": "The device accepts RTSP, a video streaming method also used by cameras. The scan does not show whether images can be viewed without a password."
+    },
+    "fix": {
+      "ro": [
+        "Oprește transmisia video din setările dispozitivului dacă nu o folosești.",
+        "Cere furnizorului IT să limiteze accesul la dispozitivele aprobate."
+      ],
+      "en": [
+        "Turn off video streaming in the device settings if you do not use it.",
+        "Ask your IT provider to limit access to approved devices."
+      ]
+    }
+  },
+  "OUTDATED_SERVICE": {
+    "severity": "high",
+    "points": 20,
+    "title": {
+      "ro": "Program care poate fi învechit",
+      "en": "Software that may be outdated"
+    },
+    "explain": {
+      "ro": "Versiunea anunțată de dispozitiv poate fi învechită. Verifică versiunea instalată înainte de a decide ce actualizare este necesară.",
+      "en": "The version reported by the device may be outdated. Check the installed version before deciding which update is needed."
+    },
+    "fix": {
+      "ro": [
+        "Verifică versiunea instalată în setările dispozitivului.",
+        "Salvează o copie a setărilor importante.",
+        "Instalează actualizările oferite de producător sau cere ajutorul furnizorului IT."
+      ],
+      "en": [
+        "Check the installed version in the device settings.",
+        "Save a copy of important settings.",
+        "Install updates provided by the manufacturer or ask your IT provider for help."
+      ]
+    }
+  },
+  "FTP_CLEARTEXT": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Transfer de fișiere prin FTP",
+      "en": "File transfer through FTP"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă FTP, o metodă de transfer de fișiere care poate trimite date fără să le ascundă. Scanarea nu confirmă protecția fiecărui transfer.",
+      "en": "The device accepts FTP, a file transfer method that can send data without hiding it. The scan does not confirm the protection of each transfer."
+    },
+    "fix": {
+      "ro": [
+        "Oprește FTP dacă nu îl folosești.",
+        "Cere furnizorului IT o metodă de transfer care protejează fișierele și parolele."
+      ],
+      "en": [
+        "Turn off FTP if you do not use it.",
+        "Ask your IT provider for a transfer method that protects files and passwords."
+      ]
+    }
+  },
+  "HTTP_ADMIN_CLEARTEXT": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Pagină de setări fără conexiune protejată",
+      "en": "Settings page without a protected connection"
+    },
+    "explain": {
+      "ro": "Titlul paginii sugerează o pagină de setări sau conectare, accesibilă prin HTTP. HTTP nu ascunde datele trimise, cum ar fi parolele.",
+      "en": "The page title suggests a settings or sign-in page accessible through HTTP. HTTP does not hide transmitted data, such as passwords."
+    },
+    "fix": {
+      "ro": [
+        "Evită să introduci parole pe această pagină HTTP.",
+        "Activează HTTPS, conexiunea care protejează datele, dacă dispozitivul permite.",
+        "Cere furnizorului IT să dezactiveze accesul la setări prin HTTP."
+      ],
+      "en": [
+        "Avoid entering passwords on this HTTP page.",
+        "Enable HTTPS, the connection that protects data, if the device supports it.",
+        "Ask your IT provider to disable access to settings through HTTP."
+      ]
+    }
+  },
+  "SMB_EXPOSED": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Partajare de fișiere în rețea",
+      "en": "Network file sharing"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă SMB, o metodă de partajare a fișierelor în rețea. Scanarea nu arată ce fișiere sunt partajate sau cine le poate deschide.",
+      "en": "The device accepts SMB, a way to share files over a network. The scan does not show which files are shared or who can open them."
+    },
+    "fix": {
+      "ro": [
+        "Oprește partajarea fișierelor dacă nu o folosești.",
+        "Verifică folderele partajate și permite accesul doar persoanelor aprobate."
+      ],
+      "en": [
+        "Turn off file sharing if you do not use it.",
+        "Check shared folders and allow access only to approved people."
+      ]
+    }
+  },
+  "MQTT_EXPOSED": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Mesaje între dispozitive",
+      "en": "Messages between devices"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă MQTT, o metodă prin care dispozitivele își trimit mesaje. Scanarea nu arată cine poate citi sau trimite aceste mesaje.",
+      "en": "The device accepts MQTT, a way for devices to exchange messages. The scan does not show who can read or send these messages."
+    },
+    "fix": {
+      "ro": [
+        "Oprește serviciul MQTT dacă nu îl folosești.",
+        "Cere furnizorului IT să limiteze mesajele la dispozitivele aprobate și să protejeze conexiunea."
+      ],
+      "en": [
+        "Turn off the MQTT service if you do not use it.",
+        "Ask your IT provider to limit messages to approved devices and protect the connection."
+      ]
+    }
+  },
+  "UPNP_EXPOSED": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Conectare automată prin UPnP",
+      "en": "Automatic connection through UPnP"
+    },
+    "explain": {
+      "ro": "Dispozitivul răspunde prin UPnP, o metodă prin care dispozitivele se găsesc și pot cere schimbări de conexiune. Scanarea nu arată că există acces din internet.",
+      "en": "The device responds through UPnP, a way for devices to find each other and request connection changes. The scan does not show that internet access exists."
+    },
+    "fix": {
+      "ro": [
+        "Verifică dacă dispozitivele tale au nevoie de UPnP.",
+        "Dezactivează UPnP în setările dispozitivului dacă nu este necesar."
+      ],
+      "en": [
+        "Check whether your devices need UPnP.",
+        "Disable UPnP in the device settings if it is not needed."
+      ]
+    }
+  },
+  "SNMP_EXPOSED": {
+    "severity": "medium",
+    "points": 10,
+    "title": {
+      "ro": "Serviciu de monitorizare a dispozitivului",
+      "en": "Device monitoring service"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă SNMP, o metodă de verificare a stării și setărilor sale prin rețea. Scanarea nu arată ce informații poate obține un vizitator.",
+      "en": "The device accepts SNMP, a way to check its status and settings over the network. The scan does not show what information a visitor can obtain."
+    },
+    "fix": {
+      "ro": [
+        "Oprește SNMP dacă nu îl folosești.",
+        "Cere furnizorului IT să limiteze monitorizarea la dispozitivele aprobate."
+      ],
+      "en": [
+        "Turn off SNMP if you do not use it.",
+        "Ask your IT provider to limit monitoring to approved devices."
+      ]
+    }
+  },
+  "PRINTER_RAW_EXPOSED": {
+    "severity": "low",
+    "points": 5,
+    "title": {
+      "ro": "Conexiune directă pentru imprimare",
+      "en": "Direct printing connection"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă o conexiune pentru trimiterea directă a documentelor la imprimare. Verifică ce dispozitive au nevoie să imprime.",
+      "en": "The device accepts a connection for sending documents directly to print. Check which devices need to print."
+    },
+    "fix": {
+      "ro": [
+        "Dezactivează imprimarea directă dacă nu o folosești.",
+        "Cere furnizorului IT să permită imprimarea doar de pe dispozitivele aprobate."
+      ],
+      "en": [
+        "Disable direct printing if you do not use it.",
+        "Ask your IT provider to allow printing only from approved devices."
+      ]
+    }
+  },
+  "UNKNOWN_DEVICE": {
+    "severity": "low",
+    "points": 5,
+    "title": {
+      "ro": "Dispozitiv care poate fi necunoscut",
+      "en": "Device that may be unfamiliar"
+    },
+    "explain": {
+      "ro": "Dispozitivul poate fi unul pe care nu îl recunoști, deoarece scanarea nu a găsit un nume sau un producător. Poate fi și un dispozitiv al tău care nu oferă aceste informații.",
+      "en": "The device may be one you do not recognize because the scan found no name or manufacturer. It may also be one of your devices that does not provide this information."
+    },
+    "fix": {
+      "ro": [
+        "Compară adresa de rețea afișată cu lista dispozitivelor din router.",
+        "Cere ajutorul furnizorului IT pentru identificare înainte de a bloca dispozitivul."
+      ],
+      "en": [
+        "Compare the displayed network address with the device list in your router.",
+        "Ask your IT provider for help identifying the device before blocking it."
+      ]
+    }
+  },
+  "SSH_OPEN": {
+    "severity": "info",
+    "points": 0,
+    "title": {
+      "ro": "Acces protejat prin SSH disponibil",
+      "en": "Protected access through SSH available"
+    },
+    "explain": {
+      "ro": "Dispozitivul acceptă SSH, o metodă de control de la distanță care protejează datele trimise. Prezența acestui serviciu nu dovedește o problemă și nu scade scorul.",
+      "en": "The device accepts SSH, a remote control method that protects transmitted data. The presence of this service does not prove a problem and does not lower the score."
+    },
+    "fix": {
+      "ro": [
+        "Păstrează SSH activ doar dacă ai nevoie de acces de la distanță.",
+        "Verifică cine are permisiunea să se conecteze."
+      ],
+      "en": [
+        "Keep SSH enabled only if you need remote access.",
+        "Check who has permission to connect."
+      ]
+    }
+  }
+}

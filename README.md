@@ -246,3 +246,18 @@ findings, scoring, history, and API endpoints.
 Laboratory documentation and the preliminary HTTP capture are available in
 [lab/README.md](lab/README.md). For remaining work, see the
 [project status](docs/project-status.md).
+
+### Finding explanations (RO/EN)
+
+`netcheck/catalog.json` contains the 15 local explanations and remediation
+lists. The catalog is validated and read once per process; restart the server
+after editing it. Scan findings, severity and scores still come only from the
+rule engine.
+
+`POST /api/import`, `POST /api/scan`, and `GET /api/scans/{id}` attach `title`,
+`explain`, and `fix` to each finding. Without `lang`, each field contains
+`ro` and `en`; with `?lang=ro` or `?lang=en`, titles and explanations are
+strings and `fix` is a list of steps. Other language values return HTTP 422.
+The stored history remains the engine model, so existing scans also receive
+the catalog explanations when retrieved. A missing or invalid catalog returns
+HTTP 503 with a Romanian/English error, without saving a partial import.

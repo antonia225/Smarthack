@@ -119,7 +119,9 @@ def test_preview_ready_on_a_hotspot(client):
     with patch.object(scanner, "detect_network", return_value=LAB), \
             patch("netcheck.api.port_specification", return_value="T:80,443,U:53,123,161,1900,5353"):
         body = client.get("/api/scan/preview").json()
-    assert body["target"] == "172.20.10.0/28" and body["nmap"] is True and body["tcp_ports"] == 2
+    # No saved lab in this fixture: the preview names no target and explains why.
+    assert body["target"] is None and body["nmap"] is True and body["tcp_ports"] == 2
+    assert any("configure-lab" in p for p in body["problems"])
 
 
 # ---- import / list / get / compare / delete ----

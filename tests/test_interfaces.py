@@ -195,29 +195,22 @@ def test_busy_scan_reports_conflict(environment, channel):
     environment[3].assert_not_called()
 
 
-@pytest.mark.parametrize('target,ok', [('172.20.10.3', True), ('172.20.10.16/28', False),
-                                       ('8.8.8.8', False), ('192.168.1.5', False)])
-def test_without_saved_config_only_connected_subnet_is_allowed(environment, target, ok):
+@pytest.mark.parametrize('target', ['172.20.10.3', '172.20.10.16/28', '8.8.8.8', '192.168.1.5'])
+def test_without_saved_config_every_target_is_refused(environment, target):
     config, output, detect, process, client = environment
     config.unlink()
     response = client.post('/api/scan', json={'target': target, 'confirm': True})
-    assert response.status_code == (200 if ok else 403)
-    assert process.called is ok
+    assert response.status_code == 403
+    process.assert_not_called()
 
 
-def test_api_scan_without_target_uses_connected_subnet(environment):
+def test_api_scan_without_target_and_without_config_is_refused(environment):
     config, output, detect, process, client = environment
     config.unlink()
-    seen = []
-    def lenient(command, **kwargs):
-        seen.append(command[-1] if command[0] == 'nmap' else command[3])
-        Path(command[command.index('-oX') + 1] if command[0] == 'nmap' else command[4]).write_text(
-            '<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>')
-        return subprocess.CompletedProcess(command, 0, '', '')
-    process.side_effect = lenient
     response = client.post('/api/scan', json={'confirm': True})
-    assert response.status_code == 200
-    assert seen == ['172.20.10.0/28']
+    assert response.status_code == 403
+    assert 'configure-lab' in response.text
+    process.assert_not_called()
 
 
 def test_scan_preview_never_scans(environment):

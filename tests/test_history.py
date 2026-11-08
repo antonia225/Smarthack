@@ -17,7 +17,17 @@ def test_save_and_read_scan(monkeypatch, tmp_path):
     analysis = analyze_file(VALIDATION_DIR / "V2_smart_home.xml")
 
     scan_id = history.save_scan(analysis)
-    assert history.get_scan(scan_id) == analysis
+    # Without an explicit source the file name is stored (legacy behaviour).
+    assert history.get_scan(scan_id) == {**analysis, "source": analysis["file"]}
+
+
+def test_source_is_stored_and_listed(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "DB_PATH", tmp_path / "netcheck.db")
+    live = history.save_scan({**analyze_file(VALIDATION_DIR / "V1_home_basic.xml"), "source": "live"})
+    imported = history.save_scan({**analyze_file(VALIDATION_DIR / "V7_broken.xml"), "source": "import"})
+    assert history.get_scan(live)["source"] == "live"
+    assert history.get_scan(imported)["source"] == "import"
+    assert [(row["id"], row["source"]) for row in history.list_scans()] == [(live, "live"), (imported, "import")]
 
 
 def test_compare_v6_reports_resolved_findings(monkeypatch, tmp_path):

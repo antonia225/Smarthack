@@ -226,8 +226,12 @@ def _detect_windows() -> NetworkInfo:
         "-Command", _WINDOWS_NETWORK_SCRIPT,
     ])
     adapters = {a["ifIndex"]: a for a in data["adapters"]}
+    # Interfaces that carry a default route; a virtual one is a VPN-like path.
+    default_ifaces = {r["InterfaceIndex"] for r in data["routes"]
+                      if r["DestinationPrefix"] == "0.0.0.0/0"}
     candidates = []
     loopbacks = set()
+    ignored = set()
     for item in data["addresses"]:
         key = item["InterfaceIndex"]
         address = IPv4Address(item["IPAddress"])
@@ -238,17 +242,32 @@ def _detect_windows() -> NetworkInfo:
         if adapter is None:
             raise NetworkDetectionError("Adaptor IPv4 necunoscut; posibil VPN.")
         if adapter["Status"] != "Up":
+            ignored.add(key)
             continue
         if adapter["HardwareInterface"] is not True:
-            raise NetworkDetectionError(f"Adaptor IPv4 VPN/virtual activ: {adapter['Name']}.")
+            if key in default_ifaces:
+                raise NetworkDetectionError(f"Adaptor IPv4 VPN/virtual activ: {adapter['Name']}.")
+            # Docker/Hyper-V/WSL switches have no default route: not the LAN.
+            ignored.add(key)
+            continue
         # MSFT_NetIPAddress AddressState: Preferred = 4.
         if item["AddressState"] not in (4, "Preferred"):
             raise NetworkDetectionError("Adresa IPv4 nu este în starea Preferred.")
         candidate = _candidate(key, adapter["Name"], str(address), item["PrefixLength"])
         if candidate:
             candidates.append(candidate)
-    routes = [(r["InterfaceIndex"], r["DestinationPrefix"], r["NextHop"])
-              for r in data["routes"] if r["InterfaceIndex"] not in loopbacks]
+        else:
+            ignored.add(key)  # e.g. 169.254.x.x with no DHCP lease
+    routes = []
+    for r in data["routes"]:
+        key = r["InterfaceIndex"]
+        if key in loopbacks:
+            continue
+        # Drop on-link routes of ignored interfaces, but never a default route:
+        # a default route through an ignored interface stays ambiguous.
+        if key in ignored and r["DestinationPrefix"] != "0.0.0.0/0":
+            continue
+        routes.append((key, r["DestinationPrefix"], r["NextHop"]))
     return _select_network(candidates, routes)
 
 
@@ -425,6 +444,10 @@ def validate_scan_request(
             data = json.loads(Path(config_path).read_text(encoding="utf-8"))
             expected = NetworkInfo(**data["network"])
             allowed_networks = data["allowed_networks"]
+        except FileNotFoundError:
+            # No saved lab: the allowlist defaults to the subnet we are on.
+            expected = detect_network()
+            allowed_networks = [_default_allowed(expected)]
         except (OSError, ValueError, TypeError, KeyError) as exc:
             raise _permission_error(
                 "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",
@@ -441,12 +464,32 @@ def validate_scan_request(
     return ValidatedTarget(canonical, permitted, expected, _signature(canonical, permitted, expected))
 
 
+def _default_allowed(network: NetworkInfo) -> str:
+    """The connected subnet as default allowlist; only hotspot-sized LANs.
+
+    A phone hotspot is a /24 or smaller. A larger network (e.g. a /16 venue
+    Wi-Fi) is never authorized automatically: scanning it is forbidden by the
+    rules of engagement unless the team explicitly configures it.
+    """
+    subnet = IPv4Network(network.subnet)
+    if subnet.prefixlen < 24:
+        raise _permission_error(
+            f"Rețeaua conectată ({subnet}) este prea mare pentru un hotspot și pare Wi-Fi-ul "
+            "locației; conectează-te la hotspot-ul echipei. Scanarea ei este interzisă",
+            f"The connected network ({subnet}) is too large for a hotspot and looks like the "
+            "venue Wi-Fi; connect to your team hotspot. Scanning it is not allowed",
+        )
+    return str(subnet)
+
+
 def default_scan_target(config_path: str | Path = _DEFAULT_LAB_CONFIG) -> str:
-    """Return the persisted authorized subnet for the target-less CLI form."""
+    """Saved lab subnet, or the connected subnet when no lab was saved."""
     try:
         data = json.loads(Path(config_path).read_text(encoding="utf-8"))
         network = NetworkInfo(**data["network"])
         return network.subnet
+    except FileNotFoundError:
+        return _default_allowed(detect_network())
     except (OSError, ValueError, TypeError, KeyError) as exc:
         raise _permission_error(
             "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",

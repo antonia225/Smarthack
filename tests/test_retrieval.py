@@ -72,7 +72,7 @@ def test_empty_query_and_nonpositive_limit(frozen_corpus):
 
 def test_unallowlisted_url_is_not_indexed(frozen_corpus):
     index_path = frozen_corpus / 'index.json'
-    index = json.loads(index_path.read_text())
+    index = json.loads(index_path.read_text(encoding='utf-8'))
     index['passages'][0]['source_url'] = 'https://untrusted.example/source'
     index_path.write_text(json.dumps(index))
     assert index['passages'][0]['id'][3:] not in [p.id for p in retriever.passages()]
@@ -80,13 +80,13 @@ def test_unallowlisted_url_is_not_indexed(frozen_corpus):
 
 def test_every_rules_code_has_documentation_or_explicit_marker():
     # Inspect literals; never execute or modify the rules engine to build the corpus.
-    tree = ast.parse((ROOT / 'netcheck' / 'rules.py').read_text())
+    tree = ast.parse((ROOT / 'netcheck' / 'rules.py').read_text(encoding='utf-8'))
     catalog_codes = set(load_catalog())
     rule_codes = {node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.fullmatch(r'[A-Z]+(?:_[A-Z0-9]+)+', node.value)}
     assert rule_codes == catalog_codes
-    sources = json.loads((ROOT / 'knowledge' / 'sources.json').read_text())
+    sources = json.loads((ROOT / 'knowledge' / 'sources.json').read_text(encoding='utf-8'))
     assert catalog_codes <= {code for source in sources for code in source['codes']}
-    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text())
+    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text(encoding='utf-8'))
     ids = {entry['id'] for entry in index['passages']}
     for code in rule_codes:
         coverage = index['codes'][code]
@@ -100,9 +100,9 @@ def test_every_rules_code_has_documentation_or_explicit_marker():
 
 
 def test_all_source_and_index_urls_are_https():
-    sources = json.loads((ROOT / 'knowledge' / 'sources.json').read_text())
+    sources = json.loads((ROOT / 'knowledge' / 'sources.json').read_text(encoding='utf-8'))
     builder.validate_sources(sources)
-    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text())
+    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text(encoding='utf-8'))
     urls = [s['url'] for s in sources] + [p['source_url'] for p in index['passages']]
     urls += [d['fetched_url'] for d in index['documents'] if 'fetched_url' in d]
     assert all(urlparse(url).scheme == 'https' for url in urls)
@@ -110,7 +110,7 @@ def test_all_source_and_index_urls_are_https():
 
 
 def test_real_passages_have_required_metadata_and_word_bounds():
-    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text())
+    index = json.loads((ROOT / 'knowledge' / 'index.json').read_text(encoding='utf-8'))
     required = {'id', 'source_url', 'license', 'attribution', 'revision', 'retrieved', 'codes', 'keywords_en', 'keywords_ro'}
     for doc in index['documents']:
         if doc['status'] != 'ok':

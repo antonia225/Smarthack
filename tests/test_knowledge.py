@@ -37,7 +37,7 @@ def test_retriever_has_catalog_for_every_finding():
 
 
 def test_builder_downloads_once_and_preserves_attribution(monkeypatch, tmp_path):
-    source = next(s for s in json.loads(SOURCES.read_text()) if s['id'] == 'mdn-http')
+    source = next(s for s in json.loads(SOURCES.read_text(encoding='utf-8')) if s['id'] == 'mdn-http')
     calls = []
     raw = (FIXTURES / 'mdn-http.html').read_bytes()
 
@@ -79,7 +79,7 @@ def test_short_document_has_explicit_failure():
 
 
 def test_missing_wikipedia_title_is_explicit(monkeypatch):
-    source = json.loads(SOURCES.read_text())[0]
+    source = json.loads(SOURCES.read_text(encoding='utf-8'))[0]
     raw = json.dumps({'query': {'pages': [{'title': 'Missing title', 'missing': True}]}}).encode()
     monkeypatch.setattr(builder.time, 'sleep', lambda _: None)
     monkeypatch.setattr(builder, 'urlopen', lambda *a, **k: Response(raw, source['url']))
@@ -88,7 +88,7 @@ def test_missing_wikipedia_title_is_explicit(monkeypatch):
 
 
 def test_offline_build_continues_and_marks_missing_codes(monkeypatch, tmp_path, capsys):
-    sources = json.loads(SOURCES.read_text())[:2]
+    sources = json.loads(SOURCES.read_text(encoding='utf-8'))[:2]
     manifest = tmp_path / 'sources.json'
     manifest.write_text(json.dumps(sources))
     monkeypatch.setattr(builder, 'SOURCES', manifest)
@@ -96,7 +96,7 @@ def test_offline_build_continues_and_marks_missing_codes(monkeypatch, tmp_path, 
     monkeypatch.setattr(builder, 'NOTICE', tmp_path / 'NOTICE.md')
     monkeypatch.setattr(builder, 'urlopen', lambda *a, **k: pytest.fail('offline must not access network'))
     assert builder.main(['--offline']) == 1
-    index = json.loads((tmp_path / 'index.json').read_text())
+    index = json.loads((tmp_path / 'index.json').read_text(encoding='utf-8'))
     assert len(index['documents']) == 2
     assert all(doc['status'] == 'unavailable' for doc in index['documents'])
     assert index['codes']['TELNET_OPEN']['status'] == 'fără documentație încă'
@@ -104,7 +104,7 @@ def test_offline_build_continues_and_marks_missing_codes(monkeypatch, tmp_path, 
 
 
 def test_download_error_does_not_stop_later_sources(monkeypatch, tmp_path, capsys):
-    sources = json.loads(SOURCES.read_text())[:2]
+    sources = json.loads(SOURCES.read_text(encoding='utf-8'))[:2]
     manifest = tmp_path / 'sources.json'; manifest.write_text(json.dumps(sources))
     monkeypatch.setattr(builder, 'SOURCES', manifest)
     monkeypatch.setattr(builder, 'OUTPUT', tmp_path)
@@ -123,7 +123,7 @@ def test_download_error_does_not_stop_later_sources(monkeypatch, tmp_path, capsy
 
 
 def test_rate_limit_has_no_automatic_retry(monkeypatch):
-    source = json.loads(SOURCES.read_text())[0]
+    source = json.loads(SOURCES.read_text(encoding='utf-8'))[0]
     calls = []
     monkeypatch.setattr(builder.time, 'sleep', lambda _: None)
 
@@ -143,7 +143,7 @@ def test_builder_extracts_main_without_navigation():
 
 
 def test_offline_reuses_generated_markdown_without_cache(monkeypatch, tmp_path):
-    source = next(s for s in json.loads(SOURCES.read_text()) if s['id'] == 'mdn-http')
+    source = next(s for s in json.loads(SOURCES.read_text(encoding='utf-8')) if s['id'] == 'mdn-http')
     # Reuse the shipped, attributed document, as in a fresh checkout.
     original = SOURCES.parent / 'mdn-http.md'
     (tmp_path / 'mdn-http.md').write_bytes(original.read_bytes())

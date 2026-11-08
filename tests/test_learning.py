@@ -37,7 +37,9 @@ def test_missing_key_uses_documentation_fallback(monkeypatch, tmp_path):
     result = response.json()
     assert result["mode"] == "fallback"
     assert result["sources"]
-    assert "Asistentul nu e disponibil acum" in result["answer"]
+    # The offline path is the designed behaviour (NFR-06): it names its source.
+    assert result["answer"].startswith("Răspuns din scanare și catalogul local:")
+    assert "Asistentul nu e disponibil" not in result["answer"]
     answers = client.get(f"/api/scans/{scan_id}/answers")
     assert answers.status_code == 200
     assert len(answers.json()) == 1
@@ -228,7 +230,7 @@ def test_real_adapter_network_failure_falls_back_in_english(monkeypatch, tmp_pat
     })
     assert response.status_code == 200
     assert response.json()["mode"] == "fallback"
-    assert response.json()["answer"].startswith("The assistant is not available")
+    assert response.json()["answer"].startswith("Answer from the local catalog")
 
 
 def test_question_limit_is_enforced_by_api(monkeypatch, tmp_path):

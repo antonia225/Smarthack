@@ -27,6 +27,8 @@ class Passage:
     url: str | None = None
     search_text: str = ''
     document_id: str = ''
+    language: str = ''
+    codes: tuple[str, ...] = ()
 
 
 def _tokens(text: str) -> list[str]:
@@ -59,7 +61,8 @@ def _knowledge_passages(lang: str = 'ro') -> list[Passage]:
             seen.add(entry['id'])
             keywords = ' '.join(source.get('keywords_en', []) + source.get('keywords_ro', []) + source.get('codes', []))
             result.append(Passage(entry['id'][3:], source['title'], entry['text'], 'kb', source['url'],
-                                  f"{source['title']} {keywords} {entry['text']}", doc_id))
+                                  f"{source['title']} {keywords} {entry['text']}", doc_id,
+                                  str(source.get('language', '')), tuple(entry.get('codes', []))))
         return result
     except (OSError, ValueError, KeyError, TypeError):
         # A missing/invalid corpus never removes the local catalog fallback.
@@ -72,7 +75,8 @@ def _catalog_passages(lang: str) -> list[Passage]:
         def content(language):
             return f"{entry['title'][language]}. {entry['explain'][language]} {' '.join(entry['fix'][language])}"
         result.append(Passage(code, entry['title'][lang], content(lang), 'catalog',
-                              search_text=f"{code} {content('ro')} {content('en')}", document_id=f'catalog:{code}'))
+                              search_text=f"{code} {content('ro')} {content('en')}", document_id=f'catalog:{code}',
+                              language=lang, codes=(code,)))
     return result
 
 

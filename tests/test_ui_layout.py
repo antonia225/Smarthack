@@ -162,6 +162,7 @@ def test_device_list_opens_the_same_details_with_keyboard(browser, server):
     device = page.locator("#page-home .device-item").nth(1)
     device.focus()
     page.keyboard.press("Enter")
+    page.wait_for_selector('#page-home .inspector[data-open="true"]')
     assert _open(page) == "true"
     page.keyboard.press("Escape")
     assert _open(page) == "false"

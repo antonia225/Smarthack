@@ -247,13 +247,14 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   /* graph */
   const graf = el("section", "card nv-graf"); graf.setAttribute("aria-labelledby", "g-title-" + (++menuCounter));
   const grafHead = el("div", "nv-graf-head"); const grafTitle = el("h2"); grafTitle.id = graf.getAttribute("aria-labelledby");
-  const grafHint = el("p", "muted"); grafHead.append(grafTitle, grafHint);
+  grafHead.append(grafTitle);
   /* import view: horizontal layout, vertical only on small phones */
   const phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 599px)") : { matches: false };
   if (isImport) {
     state.orient = phoneQuery.matches ? "vertical" : "horizontal";
     if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", () => { state.orient = phoneQuery.matches ? "vertical" : "horizontal"; applyGraph(); });
   }
+
 
   const graph = el("div", "graph");
   const viewPicker = el("div", "view-picker");
@@ -337,7 +338,9 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   const lateral = el("div", "nv-lateral");
   const side = createSidePanel({ showSeverity: !isImport });
   const inspector = el("aside", "inspector"); inspector.dataset.open = "false"; inspector.setAttribute("aria-label", text("deviceDetails"));
+  side.root.querySelector(".sev-card")?.remove();
   if (isImport) { root.classList.add("nv-import"); lateral.append(side.root); } else lateral.append(side.root, inspector);
+
   /* vulnerabilities band */
   const vuln = el("section", "card nv-vuln"); const vulnTitleId = "v-title-" + (++menuCounter); vuln.setAttribute("aria-labelledby", vulnTitleId);
   const vulnHead = el("div", "nv-vuln-head"); const vulnTitle = el("h2"); vulnTitle.id = vulnTitleId; const vulnCount = el("p", "muted");

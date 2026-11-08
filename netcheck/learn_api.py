@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 import sqlite3
 from typing import Any, Literal
 
@@ -28,6 +29,7 @@ class AskRequest(BaseModel):
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _remember(request: AskRequest, result: dict[str, Any]) -> dict[str, Any]:
@@ -38,8 +40,18 @@ def _remember(request: AskRequest, result: dict[str, Any]) -> dict[str, Any]:
             result["answer"],
             result["mode"],
         )
-    except sqlite3.Error:
-        pass
+    except sqlite3.Error as exc:
+        logger.exception("Could not persist Learning Mode answer for scan %s", request.scan_id)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "answer_save_failed",
+                "message": {
+                    "ro": "Răspunsul nu a putut fi salvat. Încearcă din nou.",
+                    "en": "The answer could not be saved. Try again.",
+                },
+            },
+        ) from exc
     return result
 
 

@@ -2133,3 +2133,12 @@ dialog.sheet .row-actions {
   .nv.nv-import { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 480px auto auto; grid-template-areas: "score" "graf" "vuln" "detail"; }
   .nv-import .inspector { position: static; height: auto; }
 }
+
+.nv-graf-head { justify-content: space-between; align-items: center; }
+.nv-graf-head .view-picker { margin-left: auto; flex: none; }
+.nv-graf-head .view-opt { min-height: 32px; padding: 3px 7px; gap: 4px; font-size: 1rem; }
+.nv-graf-head .view-opt svg { width: 16px; height: 16px; }
+@media (pointer: coarse) {
+  .nv-graf-head .view-opt { min-height: 44px; }
+
+}

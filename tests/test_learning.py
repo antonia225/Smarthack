@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -72,19 +73,38 @@ def test_two_questions_are_listed_in_order(monkeypatch, tmp_path):
     monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
     monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
 
-    for question in ("Prima întrebare", "A doua întrebare"):
+    for question in ("Ce porturi sunt deschise?", "Ce riscuri are rețeaua?"):
         response = client.post("/api/ask", json={
             "scan_id": scan_id,
             "question": question,
             "lang": "ro",
         })
         assert response.status_code == 200
+        assert response.json()["mode"] == "fallback"
 
     answers = client.get(f"/api/scans/{scan_id}/answers").json()
     assert [item["question"] for item in answers] == [
-        "Prima întrebare",
-        "A doua întrebare",
+        "Ce porturi sunt deschise?",
+        "Ce riscuri are rețeaua?",
     ]
+
+
+def test_answer_save_failure_is_reported_instead_of_silent_success(monkeypatch, tmp_path, caplog):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
+
+    def cannot_save(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(history, "save_answer", cannot_save)
+    response = client.post("/api/ask", json={
+        "scan_id": scan_id, "question": "Ce porturi sunt deschise?", "lang": "ro",
+    })
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "answer_save_failed"
+    assert "database is locked" in caplog.text
+    assert client.get(f"/api/scans/{scan_id}/answers").json() == []
 
 
 def test_rejected_question_is_not_saved(monkeypatch, tmp_path):

@@ -1,113 +1,64 @@
-# Starea proiectului față de brief
+# Project status
 
-Evaluare la 7 noiembrie 2026. Acest fișier separă implementarea existentă de
-validarea reală și de cerințele încă neimplementate. Testele automate cu
-procese simulate nu certifică o scanare a laboratorului. În această revizie
-nu s-au pornit scanări live sau servicii de laborator.
+Verified on 8 November 2026, on `main` at `0ae1e5f`, using the commands in the
+"Evidence" column. All commands are offline except `network`, which reads the
+IP configuration without scanning. No live scan was run for this document.
 
-## Ce este disponibil
+Test suite: `python -m pytest -q -m "not native"` → 307 passed, 1 skipped
+(`tests/test_ui_layout.py`, Playwright not installed), 1 deselected (native test).
 
-În această revizie au fost reparate prin cod și teste: wrapperul macOS
-compară directoare rezolvate, acceptă numai ținte RFC1918 și primește lista
-TCP generată din `nmap-services`; `scan --confirm` poate folosi subnetul
-autorizat din configurație; verificatorul XML are logică unificată. Privilegiile
-macOS, scanarea reală, BEFORE/AFTER și rezultatele gitleaks rămân
-**NEVERIFICATE live**.
+**Update, later on 8 November.** `main` moved to `767b3c4` (PR #21, UI Refactor).
+Commit `5f9f3f5` in that PR made three changes:
+- `UNKNOWN_DEVICE` became info/0 instead of the official low/5, so V4 scores 30
+  instead of 25;
+- the matching rows in `tests/validation/expected_*.csv` were edited;
+- the parser now rewrites service names.
 
-| Componentă | Implementare și dovadă | Ce mai trebuie verificat |
-| --- | --- | --- |
-| Task 1: laborator documentat | Hotspot, roluri și captură HTTP reală păstrată; instrucțiuni de reproducere | Completați inventarul interfețelor/prefixelor țintelor și confirmați reproducerea pe configurația curentă |
-| Task 2: servicii de laborator | Compose PostgreSQL/MQTT, simulatoare FTP/Telnet și HTTP separat; verificator după catalog | Scanare între laptopuri cu cinci tipuri distincte; probele anterioare au avut identificări HTTP/MQTT/FTP necorespunzătoare |
-| Task 3: detectarea rețelei | IP, interfață, prefix, subnet și gateway; verificare nativă pe Mac; teste simulate macOS/Windows/Linux | Verificare nativă reușită pe Windows/Linux înainte de folosirea lor la prezentare; rezultatele workflow-ului CI nu sunt încă observate |
-| Task 4: guardrail | Confirmare, allowlist persistent RFC1918, obiect validat imuabil și semnat, reverificarea rețelei, CLI/API comune | Repetarea refuzurilor în mediul de prezentare; configurația IP nu autentifică proprietarul hotspot-ului |
-| Executarea scanării | Selecție TCP/UDP, limită de rată, timeout, verificare XML sigură, durată și erori, blocare între fire/procese | Privilegii limitate la procesul Nmap, scanare reală completă și măsurarea performanței |
+PR #22 (`restore-official-rules`, `0294d40`, open, not merged) restores the
+official behaviour. Re-measured with the same command:
 
-Pot fi folosite numai un Mac și un Windows: Mac-ul scanează, Windows găzduiește
-HTTP și containerele. Brief-ul cere minimum trei dispozitive **sau servicii**,
-nu trei laptopuri țintă. Instrucțiuni: [servicii](../lab/services/README.md).
+| Commit | Tests | Validation Set |
+|---|---|---|
+| `767b3c4` (`main`) | 328 passed, 1 skipped, 1 deselected | matches the edited CSVs; differs from the official ones only in V4 (`UNKNOWN_DEVICE` info, score 30) |
+| `0294d40` (PR #22) | 331 passed, 1 skipped, 1 deselected | `findings.csv` and `scores.csv` byte-identical to the official CSVs (`de7185d`); scores 90, 40, 45, 25, 50, 60, 100, ERROR |
 
-Nu considerați Taskul 2 finalizat până când XML-ul real al rețelei autorizate
-nu justifică minimum cinci tipuri de findings conform numelor serviciilor din
-catalog. Un port deschis, o scanare pe loopback sau o excepție introdusă în
-verificator nu sunt suficiente. Nu modificați XML-urile pentru a obține
-rezultatul așteptat.
+The per-file counts cited below (29, 14, 22 tests) are unchanged on both commits.
+Unless marked otherwise, the rows below were measured on `0ae1e5f`.
 
-## Cerințe obligatorii încă deschise
+## Mandatory requirements
 
-| Cerință din brief | Stare și rezultat necesar |
-| --- | --- |
-| FR-01 detectare | Implementată; suport nativ confirmat pe macOS |
-| FR-02 domeniu autorizat | Implementat și testat cu simulări; demonstrați refuzul IP-urilor publice, rețelei locației și lipsei confirmării |
-| FR-03 dispozitive | `parser.py` este schelet; trebuie IP, MAC mascat, vendor, hostname și estimare de tip |
-| FR-04 porturi/servicii | Selecția top 1.000 TCP din `nmap-services`, wrapperul macOS generat și execuția limitată sunt implementate și testate; scanarea reală și acoperirea necesită verificare |
-| FR-05 analiză offline | Neimplementată; parser sigur, erori explicite, fără acces la rețea |
-| FR-06 reguli | `rules.py` și catalogul sunt neimplementate; brief-ul are **15 coduri**, inclusiv `SSH_OPEN` (nu 14), numai pe porturi `open` și după numele serviciului |
-| FR-07/08 explicații și remedieri | Catalogul este gol; maximum două propoziții și 1–5 pași concreți per finding, în RO/EN |
-| FR-09 scor | `scoring.py` este schelet; `max(0, 100 - suma punctelor)` |
-| FR-10 istoric | `history.py` este schelet; scanări locale, diferențe și evoluția scorului, plus ștergere completă |
-| FR-11 UI | Fișierele web sunt schelet; trebuie scor, dispozitive, findings, pași și istoric; `/docs` nu este UI-ul cerut |
-| FR-15 rezultate standard | Comanda `analyze` și exporturile pe folder nu există; produceți `findings.csv` și `scores.csv` |
+| Requirement | Status | Evidence |
+|---|---|---|
+| FR-01 network detection | Implemented; run on the Mac | `python -m netcheck network` → interface, IP, prefix, subnet, gateway; `tests/test_scanner.py`, `tests/test_network_platforms.py` |
+| FR-02 authorized scope | Implemented | `python -m netcheck demo-refusals` → 4 refusals (public IP, venue Wi-Fi target and `/16`, missing `--confirm`), subprocess not called; `tests/test_scan_guardrails.py` (29 tests) |
+| FR-03 devices | Implemented | `netcheck/parser.py` + `netcheck/scoring.py`: IP, masked MAC, vendor, hostname, estimated type; `tests/test_parser_rules.py` |
+| FR-04 ports and services | Implemented; tested with simulated Nmap | `tests/test_nmap_ports.py`, `tests/test_scan_execution.py` (top 1,000 TCP + UDP 53/123/161/1900/5353, timeout, verified XML) |
+| FR-05 offline analysis | Implemented | `python -m netcheck analyze tests/validation --out <dir>` → 8 files in 0.09 s total (`/usr/bin/time -p`); `V7_broken.xml` → `ERROR`, no crash |
+| FR-06 rules (15 codes) | Implemented (on `main` `767b3c4`: 23/24 official rows, needs PR #22) | `diff` of `findings.csv` against `tests/validation/expected_findings.csv` → identical, 24/24 rows (`0ae1e5f`, `0294d40`) |
+| FR-07 explanations | Implemented | `netcheck/catalog.json`: 15 codes, 2 sentences each in RO and EN; `tests/test_catalog.py` (14 tests) |
+| FR-08 remediation | Implemented | `netcheck/catalog.json`: 2–3 steps per code in RO and EN; attached by `/api/import` and `/api/scans/{id}` |
+| FR-09 score | Implemented (on `main` `767b3c4`: V4 = 30, needs PR #22) | `scores.csv` on the Validation Set → 90, 40, 45, 25, 50, 60, 100, ERROR (`0ae1e5f`, `0294d40`); `tests/test_scoring_cli.py` |
+| FR-10 history | Implemented | `netcheck/history.py` (SQLite); `compare(V6a, V6b)` → score 60 → 100, resolved findings; `tests/test_history.py`, `tests/test_api.py` |
+| FR-11 user interface | Implemented; served locally | `python -m netcheck serve` → `GET /` 200 on `127.0.0.1:8000`; `tests/test_ui_api_contract.py` (22 tests) |
+| FR-15 standard outputs | Implemented | `analyze` writes `findings.csv` and `scores.csv`; two runs → identical files (`cmp`) |
 
-Validation Set trebuie obținut și păstrat ca fixtures: opt fișiere XML,
-**24 de rânduri de findings fără rânduri suplimentare**, cu scorurile
-90, 40, 45, 25, 50, 60, 100 și ERROR. Fișierele expected existente nu
-înlocuiesc setul oficial și un test de validare executabil. În prezent,
-`tests/test_validation.py` este doar schelet.
+Findings, severities and the score are produced only by code (`parser → rules →
+scoring`), without an LLM. Learning Mode (`netcheck/learn/`) only explains a
+scan that has already been computed.
 
-Captura `lab/preliminary/http_test.xml` are așteptarea
-`HTTP_ADMIN_CLEARTEXT` pe 8080 și `UNKNOWN_DEVICE` cu port gol, scor **85**.
-Acesta este un rezultat calculat din brief pentru verificare, nu un rezultat
-produs deja de motorul aplicației.
+## Not verified live
 
-## Securitate, fiabilitate și utilizare
-
-- **Privilegii (NFR-04):** implementat și testat fără execuție Nmap, dar
-  **neverificat live**. Pe macOS,
-  sudoers permite numai wrapperul root-owned, nu binarul Nmap; wrapperul
-  validează ținta și calea XML și fixează comanda. Pe Windows se folosește
-  Nmap ne-elevat cu Npcap încărcat, conform documentației oficiale Nmap.
-  Nu rulați FastAPI, UI-ul sau analizorul cu `sudo`. Verificați manual pașii
-  și `visudo -c` pe laptopurile respective înainte de demonstrație.
-- **Intrări ostile (NFR-03):** verificarea rezultatului scannerului are parsare
-  XML sigură și limită de 10 MB. Parserul offline și importul viitor trebuie
-  să aplice aceleași protecții; UI-ul va trata bannerele ca text, fără HTML.
-- **Date locale (NFR-02):** istoricul și hostname-urile rămân locale; toate
-  ieșirile produsului trebuie să mascheze MAC-urile. XML-ul brut de scanare
-  poate conține date complete: revizuiți capturile înainte de distribuire.
-- **Secrete (NFR-01):** configurația locală și parola temporară DB sunt în
-  afara Git, iar `.env.example` documentează explicit că aplicația nu citește
-  variabile de mediu. Au   fost adăugate configurația, jobul CI și scripturile gitleaks pentru working
-  tree și istoric. **Configurat, neobservat încă**: rularea live gitleaks trebuie
-  făcută manual și în CI.
-- **Determinism (NFR-05):** viitorul motor va produce identic findings,
-  severități și scoruri; nu folosiți LLM pentru aceste decizii.
-- **Performanță (NFR-07):** măsurați analiza offline sub 30 s/fișier și scanarea
-  unui /24 sub cinci minute. Timeout-ul de 300 s doar oprește o scanare lungă;
-  nu demonstrează reușita sau acoperirea scanării în acel timp.
-- **Limbă și accesibilitate (NFR-08/09):** toate textele produsului în RO/EN,
-  minimum 16 px, tastatură, contrast AA, icon și etichetă pe lângă culoare.
-  Mesajele și ajutorul CLI necesită încă revizie lingvistică completă.
-- **Reproducibilitate (NFR-10):** `scripts/setup.py` creează `.venv`,
-  instalează `requirements-dev.txt` și raportează lipsa Nmap; verificarea într-un
-  mediu curat și instalarea separată a Nmap rămân de confirmat manual.
-
-## Ce se livrează în continuare
-
-1. Finalizați laboratorul cu cinci tipuri de findings și acces între laptopuri.
-2. Finalizați parserul, cele 15 reguli, scorul și exporturile; verificați cele
-   24 de rânduri oficiale înainte de îmbunătățiri vizuale sau AI.
-3. Implementați istoricul și UI-ul; utilizatorul trebuie să identifice rapid
-   dispozitivul cel mai riscant și primul pas de remediere.
-4. Reparați minimum două findings reale, rescanați și păstrați BEFORE/AFTER,
-   cu scor îmbunătățit și findings rezolvate afișate în istoric.
-5. Pregătiți sumarul tehnic de o pagină și pitch-ul de 5–7 minute în engleză,
-   cu minimum doi membri vorbind, plus formularele de participare semnate.
-6. Pregătiți rezultatele Test Set, screenshot-ul UI și release-ul/tag-ul `final`,
-   respectând ferestrele de predare din brief. După încărcarea rezultatelor,
-   rerularea trebuie să reproducă exact rezultatele fără modificări de cod.
-7. Repetați cele șapte verificări live: rerulare, utilizare UI, trei explicații,
-   guardrail, XML stricat, istoric BEFORE/AFTER și verificarea secretelor.
-
-Q&A cu AI și alertele sunt Should; raportul HTML/PDF este Could. Acestea pot
-urma după Must-uri. Dacă se adaugă AI, explicațiile trebuie ancorate în
-scanare și să aibă text local de rezervă.
+- **Real scan on the hotspot** with `scan --confirm` or `lab-run`: not run for
+  this document. Scanning a `/24` in under five minutes has not been measured.
+- **Lab BEFORE/AFTER:** `lab/before/` and `lab/after/` contain no XML files in
+  Git. The pair with an improving score is still missing.
+- **macOS privileges** (sudoers wrapper) and **Npcap on Windows**: tested only
+  with simulated processes.
+- **UI in a browser:** the Playwright tests (`tests/test_ui_layout.py`) were
+  skipped; accessibility (16 px, keyboard, AA contrast) is not checked
+  automatically.
+- **Learning Mode with a real LLM provider:** only the local fallback is
+  covered by tests.
+- **Network detection on Windows/Linux:** simulated tests only.
+- **Secrets:** `gitleaks git` and `gitleaks dir` (8.30.1) ran locally with
+  exit 0 and no findings. The CI workflow runs only on pull requests.

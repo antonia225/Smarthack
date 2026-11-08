@@ -152,6 +152,29 @@ h1:focus,h2:focus {
   display: grid;
   grid-template-columns: 224px minmax(0,1fr);
 }
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.auth-card {
+  width: min(420px, 100%);
+  padding: 32px;
+  border-radius: 24px;
+  background: var(--surf);
+  color: var(--label);
+  box-shadow: 0 18px 60px rgb(20 50 35 / 14%);
+}
+.auth-card h1 { margin: 0 0 8px; }
+.auth-card p { color: var(--label-2); }
+.auth-form { display: grid; gap: 14px; margin-top: 24px; }
+.auth-form label { display: grid; gap: 6px; font-weight: 600; }
+.auth-form input { width: 100%; padding: 12px 14px; border: 1px solid var(--track); border-radius: 10px; background: var(--bg); color: var(--label); font: inherit; }
+.auth-error { color: var(--high); min-height: 1.4em; }
+.auth-switch { margin-top: 18px; border: 0; background: none; color: var(--navy); cursor: pointer; font: inherit; }
+.auth-logout { margin: 18px auto 0; }
 .sidebar {
   position: sticky;
   top: 0;
@@ -299,6 +322,64 @@ h1:focus,h2:focus {
   font-weight: 650;
   letter-spacing: -.045em;
   margin: 4px 0 6px;
+}
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.help-hint {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  flex: none;
+  border: 1px solid var(--track);
+  border-radius: 50%;
+  color: var(--navy);
+  font-size: .9rem;
+  font-weight: 750;
+  cursor: help;
+}
+.help-hint::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  left: 50%;
+  width: min(320px, 70vw);
+  padding: 12px 14px;
+  border: 1px solid var(--track);
+  border-radius: 12px;
+  background: var(--surf);
+  color: var(--label);
+  box-shadow: var(--shadow);
+  font-size: .95rem;
+  font-weight: 450;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -4px);
+  transition: opacity 160ms ease 700ms, transform 160ms ease 700ms;
+}
+.help-hint:hover::after,
+.help-hint:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.score-card .help-hint::after {
+  top: 64px;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -4px);
+}
+.score-card .help-hint {
+  position: static;
+}
+.score-card .help-hint:hover::after,
+.score-card .help-hint:focus-visible::after {
+  transform: translate(-50%, 0);
 }
 .page-sub {
   font-size: 1rem;
@@ -467,7 +548,7 @@ h1:focus,h2:focus {
   flex: 1;
   min-height: 43.75rem;
   gap: 20px;
-  grid-template-columns: minmax(0,1fr) 352px;
+  grid-template-columns: minmax(0,1fr) 392px;
   grid-template-rows: minmax(6.875rem, auto) minmax(0,1fr) 13.5rem;
   grid-template-areas: "overview overview" "graf lateral" "vuln lateral";
 }
@@ -730,6 +811,7 @@ h1:focus,h2:focus {
   flex: none;
 }
 .score-card {
+  position: relative;
   display: grid;
   grid-template-columns: 120px minmax(0,1fr);
   grid-template-areas: "title title" "ring info";
@@ -1143,6 +1225,22 @@ h1:focus,h2:focus {
 .chat-log {
   display: grid;
   gap: 16px;
+}
+.inspector.chat-open .insp-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.inspector.chat-open .chat-log {
+  height: 360px;
+  flex: none;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 6px;
+}
+.inspector.chat-open .chips {
+  flex: none;
 }
 .msg {
   padding: 16px;
@@ -1614,7 +1712,7 @@ dialog.sheet .row-actions {
     padding: 24px;
   }
   .nv,.hist {
-    grid-template-columns: minmax(0,1fr) 320px;
+    grid-template-columns: minmax(0,1fr) 360px;
   }
   .overview {
     gap: 16px;
@@ -2113,8 +2211,8 @@ dialog.sheet .row-actions {
 .page-head.swap h1 { overflow-wrap: anywhere; }
 .page.import-detail { height: auto; min-height: 100%; }
 #page-import .nv.nv-import {
-  flex: none; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas: "graf score" "graf detail" "vuln detail";
+  flex: none; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: 520px auto;
+  grid-template-areas: "graf score" "vuln detail";
 }
 .nv-import .nv-lateral { grid-area: score; }
 .nv-import .nv-graf { min-height: clamp(400px, 52vh, 520px); }

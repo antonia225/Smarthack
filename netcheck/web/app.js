@@ -54,6 +54,15 @@ function button(label, className, iconId) {
   b.append(el("span", "", label));
   return b;
 }
+function helpHint(key) {
+  const hint = el("span", "help-hint", "?");
+  hint.tabIndex = 0;
+  hint.setAttribute("role", "img");
+  hint.dataset.helpKey = key;
+  hint.setAttribute("aria-label", text(key));
+  hint.dataset.tooltip = text(key);
+  return hint;
+}
 function setButtonLabel(b, label) { const span = b.querySelector("span"); if (span) span.textContent = label; }
 const localized = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value[lang] : value);
 const findingTitle = (f) => localized(f.title) || f.code;
@@ -185,7 +194,8 @@ function createMenu(labelKey, onChange) {
 function createSidePanel({ showSeverity = true } = {}) {
   const root = el("div", "side");
   const scoreCard = el("section", "card score-card");
-  scoreCard.append(el("h2", "card-title"));
+  const scoreTitle = el("h2", "card-title"); const scoreHelp = helpHint("scoreHint");
+  scoreTitle.append(text("scoreTitle"), scoreHelp); scoreCard.append(scoreTitle);
   const ring = el("div", "ring"); ring.setAttribute("role", "img");
   const svg = svgEl("svg"); svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("aria-hidden", "true");
   const track = svgEl("circle", "track"); const arc = svgEl("circle", "arc");
@@ -218,7 +228,8 @@ function createSidePanel({ showSeverity = true } = {}) {
     lastSig = sig;
     const kind = scoreVerdict(score);
     const label = text(kind === "good" ? "scoreGood" : kind === "medium" ? "scoreMedium" : "scoreBad");
-    scoreCard.firstChild.textContent = text("scoreTitle");
+    scoreTitle.firstChild.textContent = text("scoreTitle");
+    scoreHelp.dataset.tooltip = text("scoreHint"); scoreHelp.setAttribute("aria-label", text("scoreHint"));
     num.textContent = String(score); of.textContent = text("scoreOf");
     arc.setAttribute("stroke-dasharray", score + " 100");
     ring.setAttribute("aria-label", text("scoreAria", { score, label }));
@@ -242,20 +253,12 @@ function createSidePanel({ showSeverity = true } = {}) {
 /* ================= NetworkView: score, indicators, graph, vulnerabilities, inspector ================= */
 function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   const isImport = variant === "import";
-  const state = { orient: "horizontal",  scan: null, scanId: null, selectedIp: null, panel: "closed", size: { w: 0, h: 0 }, chat: { key: "", messages: [], pending: false } };
+  const state = { scan: null, scanId: null, selectedIp: null, selectedFinding: null, panel: "closed", size: { w: 0, h: 0 }, chat: { key: "", messages: [], pending: false } };
   const root = el("div", "nv");
   /* graph */
   const graf = el("section", "card nv-graf"); graf.setAttribute("aria-labelledby", "g-title-" + (++menuCounter));
   const grafHead = el("div", "nv-graf-head"); const grafTitle = el("h2"); grafTitle.id = graf.getAttribute("aria-labelledby");
   grafHead.append(grafTitle);
-  /* import view: horizontal layout, vertical only on small phones */
-  const phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 599px)") : { matches: false };
-  if (isImport) {
-    state.orient = phoneQuery.matches ? "vertical" : "horizontal";
-    if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", () => { state.orient = phoneQuery.matches ? "vertical" : "horizontal"; applyGraph(); });
-  }
-
-
   const graph = el("div", "graph");
   const viewPicker = el("div", "view-picker");
   viewPicker.setAttribute("role", "group");
@@ -353,32 +356,12 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
 
   /* ---- graph ---- */
   let hubAt = { x: 0, y: 0 };
-  /* import view: hub on one side, devices in a grid growing away from it (horizontal = left to right) */
-  function orientedPositions(hub, others, pos) {
-    const { w, h } = state.size, horizontal = state.orient === "horizontal", n = others.length;
-    const padX = 70, padY = 56, cell = horizontal ? 96 : 150;
-    const hubX = horizontal ? padX : w / 2, hubY = horizontal ? h / 2 : padY;
-    hubAt = { x: hubX, y: hubY };
-    if (hub) pos.set(hub.ip, { x: hubX, y: hubY, r: 40, hub: true });
-    const crossLen = horizontal ? h - 2 * padY : w - 2 * padX;
-    const perLine = Math.max(1, Math.floor(crossLen / cell) + 1), lines = Math.max(1, Math.ceil(n / perLine));
-    const alongStart = (horizontal ? hubX : hubY) + 150, alongEnd = horizontal ? w - padX : h - padY - 40;
-    const alongStep = lines > 1 ? Math.max(130, (alongEnd - alongStart) / (lines - 1)) : 0;
-    others.forEach((device, i) => {
-      const line = Math.floor(i / perLine), idx = i % perLine, inLine = Math.min(perLine, n - line * perLine);
-      const along = alongStart + line * alongStep;
-      const cross = (horizontal ? padY : padX) + (inLine === 1 ? crossLen / 2 : (idx / (inLine - 1)) * crossLen);
-      pos.set(device.ip, horizontal ? { x: along, y: cross, r: 28, hub: false } : { x: cross, y: along, r: 28, hub: false });
-    });
-    return pos;
-  }
   function positions(devices) {
     const { w, h } = state.size; const pos = new Map();
     if (!w || !h) return pos;
     const cx = w / 2, cy = Math.max(40, (h - 24) / 2);
     const hub = devices.find((d) => d.device_type === "router");
     const others = devices.filter((d) => d !== hub).sort((a, b) => ipNumber(a.ip) - ipNumber(b.ip));
-    if (isImport) return orientedPositions(hub, others, pos);
     hubAt = { x: cx, y: cy };
     if (hub) pos.set(hub.ip, { x: cx, y: cy, r: 40, hub: true });
     const rx = Math.max(48, w / 2 - 84), ry = Math.max(24, h / 2 - 68);
@@ -432,9 +415,9 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       genericHub.setAttribute("transform", "translate(" + Math.round(state.size.w / 2) + "," + Math.round(Math.max(40, (state.size.h - 24) / 2)) + ")");
       genericHub.setAttribute("aria-label", text("networkNode")); genericHub.querySelector("text").textContent = text("networkNode");
     } else if (genericHub) { genericHub.remove(); genericHub = null; }
-    /* curved links from the centre to every other node */
+    /* Curved links start at the actual hub, including the import layout. */
     edgesG.replaceChildren();
-    const cx = state.size.w / 2, cy = Math.max(40, (state.size.h - 24) / 2);
+    const { x: cx, y: cy } = hubAt;
     for (const device of devices) {
       const p = pos.get(device.ip); if (!p || p.hub) continue;
       const mx = (cx + p.x) / 2, my = (cy + p.y) / 2, dx = p.x - cx, dy = p.y - cy;
@@ -480,7 +463,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     badgeIcon.setAttribute("href", "#" + SEV_ICON[sev]);
     for (const [k, v] of [["x", -9], ["y", -9], ["width", 18], ["height", 18]]) badgeIcon.setAttribute(k, String(v));
     t1.setAttribute("y", String(labelAbove ? -r - 22 : r + 24)); t2.setAttribute("y", String(labelAbove ? -r - 2 : r + 44));
-    t1.textContent = typeLabel(device) + " · ." + String(device.ip).split(".").pop();
+    t1.textContent = typeLabel(device) + " · " + String(device.ip).split(".").pop();
     t2.textContent = sev === "none" ? text("noFindingsShort") : sevLabel(sev);
     g.setAttribute("aria-label", nodeAria(device));
   }
@@ -503,13 +486,15 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       const key = finding.ip + "|" + (finding.port ?? "") + "|" + finding.code, step = (localized(finding.fix) || [])[0] || "";
       items.push({
         key, sig: [lang, index === 0, findingTitle(finding), step, finding.severity].join("|"),
-        create: () => { const li = el("li"); const b = el("button"); b.type = "button"; b.dataset.ip = finding.ip; b.addEventListener("click", () => selectDevice(finding.ip)); li.append(b); return li; },
+        create: () => { const li = el("li"); const b = el("button"); b.type = "button"; b.dataset.ip = finding.ip; b.dataset.findingKey = key; b.addEventListener("click", () => selectFinding(finding)); li.append(b); return li; },
         update: (li) => fillRow(li.firstChild, finding, index === 0, step),
       });
     });
     reconcile(vlist, items, rowCache);
   }
   function fillRow(b, finding, priority, step) {
+    const key = finding.ip + "|" + (finding.port ?? "") + "|" + finding.code;
+    b.dataset.findingKey = key;
     b.className = "vrow sev-" + finding.severity + (priority ? " priority" : "");
     const sq = el("span", "sq"); sq.append(icon(SEV_ICON[finding.severity]));
     b.setAttribute("aria-label", text("rowAria", { title: findingTitle(finding), where: whereOf(finding), severity: sevLabel(finding.severity) }));
@@ -522,11 +507,11 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     } else {
       b.replaceChildren(sq, el("span", "t", findingTitle(finding)), el("span", "w", whereOf(finding)), icon("i-chevron", "go"));
     }
-    b.setAttribute("aria-pressed", String(b.dataset.ip === state.selectedIp));
+    b.setAttribute("aria-pressed", String(b.dataset.findingKey === state.selectedFinding));
   }
   function refreshSelection() {
     for (const [ip, g] of nodeCache) g.setAttribute("aria-pressed", String(ip === state.selectedIp));
-    for (const li of vlist.querySelectorAll("li > button")) li.setAttribute("aria-pressed", String(li.dataset.ip === state.selectedIp));
+    for (const li of vlist.querySelectorAll("li > button")) li.setAttribute("aria-pressed", String(li.dataset.findingKey === state.selectedFinding));
   }
 
   /* ---- inspector ---- */
@@ -563,7 +548,10 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     for (const p of device.ports || []) ports.append(el("span", "port", p.port + "/" + p.protocol + (p.service ? " · " + p.service : "") + (p.product ? " · " + p.product + (p.version ? " " + p.version : "") : "")));
     if (!(device.ports || []).length) ports.append(el("span", "muted", text("noPorts")));
     body.append(ports);
-    const mine = sortedFindings(state.scan).filter((f) => f.ip === device.ip);
+    const mine = sortedFindings(state.scan).filter((f) => (
+      f.ip === device.ip
+      && (!state.selectedFinding || f.ip + "|" + (f.port ?? "") + "|" + f.code === state.selectedFinding)
+    ));
     if (!mine.length) body.append(el("p", "muted", text("noDeviceFindings")));
     for (const finding of mine) {
       const card = el("article", "dfind sev-" + finding.severity);
@@ -578,18 +566,46 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
         const ol = el("ol", "steps"); ol.hidden = true;
         for (const s of steps) ol.append(el("li", "", s));
         manual.setAttribute("aria-expanded", "false");
-        manual.addEventListener("click", () => { ol.hidden = !ol.hidden; manual.setAttribute("aria-expanded", String(!ol.hidden)); });
+        manual.addEventListener("click", () => {
+          ol.hidden = !ol.hidden;
+          manual.setAttribute("aria-expanded", String(!ol.hidden));
+        });
         const status = el("p", "muted"); status.setAttribute("role", "status");
         automatic.addEventListener("click", async () => {
           automatic.disabled = true; status.textContent = text("agentWorking");
           try {
-            const result = await api("/api/agent/remediate", {
+            const result = await api("/api/agent/plan", {
               method: "POST", headers: JSON_HEADERS,
-              body: JSON.stringify({ scan_id: state.scanId, device_ip: finding.ip, finding_code: finding.code, port: finding.port ?? null, lang, confirm: true })
+              body: JSON.stringify({ scan_id: state.scanId, device_ip: finding.ip, finding_code: finding.code, port: finding.port ?? null, lang })
             });
-            status.textContent = result.ok ? text(result.data.status === "ok" ? "agentDone" : "agentAccepted") : text("agentUnavailable");
-            if (!result.ok) automatic.disabled = false;
-          } catch (error) { status.textContent = text("agentUnavailable"); automatic.disabled = false; }
+            if (!result.ok) throw new Error("plan");
+            ol.replaceChildren(...(result.data.finding.fix || []).map((step) => el("li", "", step)));
+            ol.hidden = false;
+            status.textContent = text("agentConfirm");
+            const confirm = button(text("agentConfirmButton"), "primary");
+            confirm.addEventListener("click", async () => {
+              confirm.disabled = true; status.textContent = text("agentWorking");
+              try {
+                const execution = await api("/api/agent/remediate", {
+                  method: "POST", headers: JSON_HEADERS,
+                  body: JSON.stringify({ scan_id: state.scanId, device_ip: finding.ip, finding_code: finding.code, port: finding.port ?? null, lang, confirm: true })
+                });
+                if (execution.ok) {
+                  status.textContent = text(execution.data.status === "ok" ? "agentDone" : "agentAccepted");
+                } else {
+                  status.textContent = execution.data && execution.data.detail === "agent_failed"
+                    ? text("agentFailed")
+                    : text("agentUnavailable");
+                }
+                if (!execution.ok) confirm.disabled = false;
+              } catch (error) {
+                status.textContent = text("agentUnavailable"); confirm.disabled = false;
+              }
+            });
+            row.append(confirm);
+          } catch (error) {
+            status.textContent = text("agentUnavailable"); automatic.disabled = false;
+          }
         });
         row.append(manual, automatic); card.append(row, ol, status);
       }
@@ -605,7 +621,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   }
   function chatKeyNow() { return [state.scanId, state.selectedIp, lang].join("|"); }
   function renderChat() {
-    if (state.chat.key !== chatKeyNow()) state.chat = { key: chatKeyNow(), messages: [], pending: false };
+    if (state.chat.key !== chatKeyNow()) state.chat = { key: chatKeyNow(), messages: [], pending: false, historyLoaded: false };
     const device = deviceOf(state.selectedIp);
     inspector.setAttribute("aria-label", text("chatTitle"));
     const head = inspectorHead(text("chatTitle"), () => { if (state.selectedIp) openDetail(); else closePanel(true); });
@@ -641,6 +657,26 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       for (const b of chips.querySelectorAll("button")) b.disabled = state.chat.pending;
       input.disabled = send.disabled = state.chat.pending;
       log.scrollTop = log.scrollHeight;
+    }
+    async function loadHistory(chat) {
+      if (chat.historyLoaded) return;
+      chat.historyLoaded = true;
+      const params = new URLSearchParams({ lang });
+      if (state.selectedIp) params.set("device_ip", state.selectedIp);
+      try {
+        const result = await api("/api/scans/" + encodeURIComponent(state.scanId) + "/answers?" + params.toString());
+        if (!result.ok || state.chat !== chat) return;
+        chat.messages = [];
+        for (const item of result.data || []) {
+          chat.messages.push(
+            { role: "user", text: item.question },
+            { role: "assistant", text: item.answer, mode: item.mode === "ai" ? "ai" : "docs" },
+          );
+        }
+        if (state.panel === "chat") paintLog();
+      } catch (error) {
+        /* A temporary history failure must not block a new question. */
+      }
     }
     async function ask(question) {
       const value = question.trim();
@@ -692,6 +728,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     form.addEventListener("submit", (event) => { event.preventDefault(); const v = input.value; input.value = ""; ask(v); });
     body.append(log, chips);
     paintLog();
+    loadHistory(state.chat);
     inspector.replaceChildren(head, body, form);
   }
   /* If the assistant is down we show the scan's own explanation: only text that came from the catalog. */
@@ -701,6 +738,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   function focusPanel() { const h = inspector.querySelector("[data-focus]"); if (h) h.focus({ preventScroll: true }); }
   function showPanel(kind) {
     state.panel = kind;
+    inspector.classList.toggle("chat-open", kind === "chat");
     if (kind === "detail") renderDetail(); else if (kind === "chat") renderChat(); else renderUnselected();
     inspector.dataset.open = String(kind !== "closed");
     applyInert();
@@ -710,13 +748,20 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   function closePanel(returnFocus) {
     const ip = state.selectedIp;
     state.selectedIp = null;
+    state.selectedFinding = null;
     showPanel("closed");
     refreshSelection();
     if (!returnFocus) return;
     const target = listMode ? [...deviceList.querySelectorAll("button")].find((b) => b.dataset.ip === ip) : nodeCache.get(ip) || [...vlist.querySelectorAll("li > button")].find((b) => b.dataset.ip === ip);
     if (target) target.focus({ preventScroll: true });
   }
-  function selectDevice(ip) { state.selectedIp = ip; refreshSelection(); openDetail(); }
+  function selectDevice(ip) { state.selectedIp = ip; state.selectedFinding = null; refreshSelection(); openDetail(); }
+  function selectFinding(finding) {
+    state.selectedIp = finding.ip;
+    state.selectedFinding = finding.ip + "|" + (finding.port ?? "") + "|" + finding.code;
+    refreshSelection();
+    openDetail();
+  }
   function onEscape() {
     if (state.panel === "chat" && state.selectedIp) { openDetail(); return true; }
     if (state.panel !== "closed") { closePanel(true); return true; }
@@ -736,11 +781,21 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     if (scanId !== state.scanId) resetMap();
     state.scan = scan; state.scanId = scanId;
     if (state.selectedIp && !deviceOf(state.selectedIp)) { state.selectedIp = null; if (state.panel !== "closed") showPanel("closed"); }
+    if (state.selectedFinding && !sortedFindings(scan).some((finding) => (
+      finding.ip + "|" + (finding.port ?? "") + "|" + finding.code === state.selectedFinding
+    ))) state.selectedFinding = null;
     if (isImport && state.panel === "closed") renderEmpty();
     side.update(scan); applyGraph(); applyList(); refreshSelection();
     if (state.panel === "detail") { const sig = detailSig(); if (sig !== state.detailSig) { state.detailSig = sig; renderDetail(); } }
   }
-  function detailSig() { return JSON.stringify([lang, deviceOf(state.selectedIp), sortedFindings(state.scan).filter((f) => f.ip === state.selectedIp)]); }
+  function detailSig() {
+    return JSON.stringify([
+      lang,
+      state.selectedFinding,
+      deviceOf(state.selectedIp),
+      sortedFindings(state.scan).filter((f) => f.ip === state.selectedIp),
+    ]);
+  }
   /* A language change re-renders everything that has text. */
   function rerender() {
     side.update(state.scan); applyGraph(); applyList(); refreshSelection();
@@ -753,13 +808,16 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
 /* ================= pages ================= */
 function pageHeader(page, titleKey, titleId) {
   const head = el("header", "page-head");
-  const left = el("div"); const h1 = el("h1"); h1.id = titleId; h1.tabIndex = -1; h1.dataset.titleKey = titleKey; h1.textContent = text(titleKey);
+  const left = el("div"); const titleRow = el("div", "title-row"); const h1 = el("h1"); h1.id = titleId; h1.tabIndex = -1; h1.dataset.titleKey = titleKey; h1.textContent = text(titleKey);
+  const hintKey = titleKey.replace("Title", "Hint");
+  const hint = helpHint(hintKey);
+  titleRow.append(h1, hint);
   const sub = el("p", "page-sub");
   const kicker = el("p", "eyebrow"); kicker.dataset.i18n = "section" + titleKey; kicker.textContent = text(kicker.dataset.i18n);
-  left.append(kicker, h1, sub);
+  left.append(kicker, titleRow, sub);
   const actions = el("div", "actions");
   head.append(left, actions); page.append(head);
-  return { head, h1, sub, actions };
+  return { head, h1, sub, actions, hint };
 }
 function errorNotice(titleKey, stepsKey, detail) {
   const box = el("div", "notice bad"); box.setAttribute("role", "alert");
@@ -789,6 +847,7 @@ function createHomePage() {
 
   function paintStatic() {
     head.h1.textContent = text("homeTitle");
+    head.hint.dataset.tooltip = text("homeHint"); head.hint.setAttribute("aria-label", text("homeHint"));
     setButtonLabel(scanBtn, s.scanning ? text("scanning") : s.scan ? text("scanAgain") : text("scanBtn"));
     head.sub.textContent = s.scan && s.when ? text("lastScan", { when: fmtDate(s.when) }) : "";
     loadingBox.textContent = text("loading");
@@ -912,7 +971,7 @@ function createHomePage() {
   return {
     root, titleEl: head.h1,
     activate() { poll(); },
-    deactivate() { view.close(); },
+    deactivate() {},
     poll, rerender() { paintState(); view.rerender(); },
     reset() { s.scan = null; s.scanId = null; s.loaded = true; view.update(null, null); paintState(); },
     onEscape: () => view.onEscape(), init() { paintState(); poll(); },
@@ -1182,7 +1241,7 @@ function createImportPage() {
   return {
     root, titleEl: head.h1,
     activate() {}, rerender() { paint(); if (s.mode === "detail") view.rerender(); },
-    deactivate() { view.close(); },
+    deactivate() {},
     reset() { clearTimeout(s.timer); s.items = []; s.current = -1; s.mode = "list"; s.errors = []; view.update(null, null); paint(); },
     onEscape() { if (view.onEscape()) return true; if (s.mode === "detail") { backToList(); return true; } return false; },
     init() { paint(); },
@@ -1196,6 +1255,11 @@ function applyStaticText() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = text(node.dataset.i18n); });
   document.querySelectorAll("[data-i18n-aria]").forEach((node) => node.setAttribute("aria-label", text(node.dataset.i18nAria)));
+  document.querySelectorAll(".help-hint[data-help-key]").forEach((node) => {
+    const value = text(node.dataset.helpKey);
+    node.dataset.tooltip = value;
+    node.setAttribute("aria-label", value);
+  });
   for (const b of document.querySelectorAll(".lang-opt")) b.setAttribute("aria-checked", String(b.dataset.lang === lang));
 }
 function showPage(id, focusTitle) {
@@ -1220,7 +1284,41 @@ function loadLanguage() {
   if (fromUrl === "ro" || fromUrl === "en") { lang = fromUrl; return; }
   try { const saved = localStorage.getItem("netcheck-language"); if (saved === "ro" || saved === "en") lang = saved; } catch (error) { /* ignore */ }
 }
-function boot() {
+function showAuthScreen(mode = "login") {
+  const screen = $("auth-screen");
+  screen.hidden = false;
+  document.querySelector(".app").hidden = true;
+  screen.replaceChildren();
+  const card = el("section", "auth-card");
+  const title = el("h1", "", text(mode === "login" ? "authLogin" : "authRegister"));
+  const intro = el("p", "", text("authWelcome"));
+  const form = el("form", "auth-form");
+  const userLabel = el("label", "", text("authUsername"));
+  const user = el("input"); user.type = "email"; user.required = true; user.autocomplete = mode === "login" ? "username" : "email";
+  userLabel.append(user);
+  const passLabel = el("label", "", text("authPassword"));
+  const pass = el("input"); pass.type = "password"; pass.required = true; pass.minLength = 8; pass.autocomplete = mode === "login" ? "current-password" : "new-password";
+  passLabel.append(pass);
+  const error = el("p", "auth-error");
+  const submit = button(text(mode === "login" ? "authSubmitLogin" : "authSubmitRegister"), "primary");
+  submit.type = "submit";
+  const switcher = el("button", "auth-switch", text(mode === "login" ? "authSwitchRegister" : "authSwitchLogin")); switcher.type = "button";
+  switcher.addEventListener("click", () => showAuthScreen(mode === "login" ? "register" : "login"));
+  form.append(userLabel, passLabel, error, submit);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault(); submit.disabled = true; error.textContent = "";
+    const result = await api("/api/auth/" + mode, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ username: user.value, password: pass.value }) });
+    if (result.ok) { screen.hidden = true; document.querySelector(".app").hidden = false; startApp(); return; }
+    error.textContent = result.data && result.data.detail === "password_too_short" ? text("authPasswordHint") : text("authInvalid");
+    submit.disabled = false;
+  });
+  card.append(title, intro, form, switcher); screen.append(card); user.focus();
+}
+function startApp() {
+  document.querySelector(".app").hidden = false;
+  const logout = $("auth-logout");
+  logout.hidden = false; logout.textContent = text("authLogout");
+  logout.onclick = async () => { await api("/api/auth/logout", { method: "POST" }); location.reload(); };
   loadLanguage();
   pages.home = createHomePage(); pages.history = createHistoryPage(); pages.import = createImportPage();
   applyStaticText();
@@ -1241,5 +1339,11 @@ function boot() {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pages.home.poll(); });
   const initial = (location.hash || "#home").slice(1);
   showPage(initial, false);
+}
+async function boot() {
+  loadLanguage();
+  const result = await api("/api/auth/me");
+  if (result.ok && result.data && result.data.authenticated) startApp();
+  else showAuthScreen("login");
 }
 boot();

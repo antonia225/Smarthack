@@ -227,3 +227,17 @@ def test_import_list_cards_detail_back_and_error_autodismiss(browser, server):
     assert not page.is_visible("#page-import .btn >> text=Importă alte fișiere")
     page.keyboard.press("Escape")
     assert page.is_visible("#page-import .file-card")
+
+
+@pytest.mark.parametrize("width,height", [(1280, 800), (1440, 900), (390, 844)])
+def test_import_detail_keeps_its_grid(browser, server, width, height):
+    page = _page(browser, server, width, height)
+    page.click(".nav-item[data-page=import]")
+    page.set_input_files("#page-import input[type=file]", [str(VALIDATION / "V2_smart_home.xml")])
+    page.click("#page-import .file-card >> nth=0")
+    page.wait_for_selector("#page-import .node", timeout=10000)
+    areas = page.eval_on_selector("#page-import .nv", "e => getComputedStyle(e).gridTemplateAreas")
+    assert "score" in areas and "detail" in areas
+    for selector in [".nv-graf", ".nv-vuln", ".nv-lateral", ".inspector"]:
+        assert page.eval_on_selector("#page-import " + selector, RECT)[2] >= 300
+    assert page.evaluate("document.documentElement.scrollHeight") < 2600

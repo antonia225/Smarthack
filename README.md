@@ -222,8 +222,9 @@ sh scripts/macos/check-secrets.sh
 
 Run the relevant platform script after installing gitleaks separately. Expected
 result: exit code 0 with no reported secrets; a missing executable is an
-explicit failure, not a success. CI runs the same check on push and pull
-request.
+explicit failure, not a success. Both scripts use `gitleaks dir` and `gitleaks git`
+(verified with gitleaks 8.30.1). CI runs gitleaks on the Git history of each pull request
+and on manual `workflow_dispatch`, not on push.
 
 - `GET /api/network`: detect the network without scanning.
 - `POST /api/scan`: `{"target":"172.20.10.3","confirm":true}`.

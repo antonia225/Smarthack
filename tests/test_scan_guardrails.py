@@ -20,10 +20,38 @@ def no_network():
         yield detect, process
 
 
-def test_missing_config_never_authorizes_current_network(tmp_path, no_network):
+def test_missing_config_defaults_allowlist_to_connected_subnet(tmp_path, no_network):
+    missing = tmp_path / "missing.json"
+    validated = validate_scan_request("172.20.10.3", confirm=True, config_path=missing)
+    assert validated.allowed_networks == ("172.20.10.0/28",)
+    for outside in ("8.8.8.8", "192.168.1.5", "172.20.10.200"):
+        with pytest.raises(PermissionError):
+            validate_scan_request(outside, confirm=True, config_path=missing)
+    with pytest.raises(PermissionError, match="confirmation is required"):
+        validate_scan_request("172.20.10.3", confirm=False, config_path=missing)
+    no_network[1].assert_not_called()
+
+
+def test_corrupt_config_is_still_refused(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text("{nope", encoding="utf-8")
     with pytest.raises(PermissionError, match="configuration missing"):
-        validate_scan_request("172.20.10.3", confirm=True, config_path=tmp_path / "missing.json")
-    no_network[0].assert_not_called()
+        validate_scan_request("172.20.10.3", confirm=True, config_path=bad)
+
+
+def test_default_target_without_config_is_connected_subnet(tmp_path):
+    from netcheck.scanner import default_scan_target
+    assert default_scan_target(tmp_path / "missing.json") == "172.20.10.0/28"
+
+
+def test_large_connected_network_is_never_authorized_by_default(tmp_path, no_network):
+    from netcheck.scanner import default_scan_target
+    venue = NetworkInfo("wlan", "10.240.236.194", 16, "10.240.0.0/16", "10.240.0.3")
+    with patch("netcheck.scanner.detect_network", return_value=venue):
+        with pytest.raises(PermissionError, match="venue Wi-Fi"):
+            default_scan_target(tmp_path / "missing.json")
+        with pytest.raises(PermissionError, match="venue Wi-Fi"):
+            validate_scan_request("10.240.236.5", confirm=True, config_path=tmp_path / "missing.json")
     no_network[1].assert_not_called()
 
 

@@ -162,7 +162,7 @@ def list_scans(db_path: str | Path | None = None) -> list[dict[str, Any]]:
     with _connect(db_path) as connection:
         rows = connection.execute(
             """
-            SELECT id, file, network_score, scanned_at, status
+            SELECT id, file, source, network_score, scanned_at, status
             FROM scans
             ORDER BY id
             """
@@ -182,6 +182,7 @@ def get_scan(scan_id: int, db_path: str | Path | None = None) -> dict[str, Any]:
 
         result: dict[str, Any] = {
             "file": scan["file"],
+            "source": scan["source"],
             "status": scan["status"],
         }
         if scan["status"] != "ok":

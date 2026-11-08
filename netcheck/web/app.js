@@ -1,555 +1,1043 @@
 "use strict";
+/* NetCheck web UI. No libraries, no CDN, textContent only (never innerHTML).
+   Findings, severities and scores come only from the API; this file only presents them.
+   Structure: helpers → components (menu, side panel, NetworkView) → pages (home, history, import) → boot. */
 
-const params = new URLSearchParams(location.search);
-const state = {
-  lang: params.get("lang") === "en" ? "en" : "ro",
-  view: "home",
-  scans: [],
-  currentScanId: null,
-  panel: "list",
-  selectedIp: null,
-  messageTimer: null,
-  chatMessages: []
-};
-
+/* ================= configuration ================= */
+/* Home shows the newest scan whose source equals this value. Use null to accept any source. */
+const HOME_SOURCE = "live";
+const ERROR_MS = 2000;
+const POLL_MS = 5000;
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 const SEVERITIES = ["high", "medium", "low", "info"];
+const SEV_ICON = { high: "i-sev-high", medium: "i-sev-medium", low: "i-sev-low", info: "i-sev-info", none: "i-check" };
+const TYPE_ICON = { router: "i-router", camera: "i-camera", printer: "i-printer", tv: "i-tv", laptop: "i-laptop", phone: "i-phone", nas: "i-nas", iot: "i-iot", unknown: "i-unknown" };
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/* ================= helpers ================= */
+let lang = "ro";
 const $ = (id) => document.getElementById(id);
-const text = (key, fallback) => (TEXTS[state.lang] && TEXTS[state.lang][key]) || fallback || key;
-const icon = (id) => {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+const sevRank = (s) => ({ high: 3, medium: 2, low: 1, info: 0 }[s] ?? -1);
+
+function text(key, vars) {
+  const dict = TEXTS[lang] || TEXTS.ro;
+  let value = dict[key];
+  if (value === undefined) value = TEXTS.ro[key];
+  if (value === undefined) return key;
+  if (typeof value !== "string" || !vars) return value;
+  return value.replace(/\{(\w+)\}/g, (_, name) => (vars[name] === undefined ? "" : String(vars[name])));
+}
+function el(tag, className, content) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (content !== undefined) node.textContent = content;
+  return node;
+}
+function svgEl(tag, className) {
+  const node = document.createElementNS(SVG_NS, tag);
+  if (className) node.setAttribute("class", className);
+  return node;
+}
+function icon(id, className) {
+  const svg = svgEl("svg", className);
   svg.setAttribute("aria-hidden", "true");
-  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  svg.setAttribute("focusable", "false");
+  const use = svgEl("use");
   use.setAttribute("href", "#" + id);
-  svg.appendChild(use);
+  svg.append(use);
   return svg;
-};
-const node = (tag, className, value) => {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (value !== undefined) element.textContent = value;
-  return element;
-};
-
-function currentScan() {
-  return state.scans.find((scan) => scan.id === state.currentScanId) || state.scans[state.scans.length - 1] || null;
 }
-
-function severityRank(severity) {
-  return { high: 3, medium: 2, low: 1, info: 0 }[severity] || 0;
+function button(label, className, iconId) {
+  const b = el("button", "btn" + (className ? " " + className : ""));
+  b.type = "button";
+  if (iconId) b.append(icon(iconId));
+  b.append(el("span", "", label));
+  return b;
 }
-
-function findings(scan) {
-  return (scan && scan.findings ? scan.findings : []).slice().sort((a, b) =>
-    severityRank(b.severity) - severityRank(a.severity) || String(a.ip).localeCompare(String(b.ip)));
+function setButtonLabel(b, label) { const span = b.querySelector("span"); if (span) span.textContent = label; }
+const localized = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value[lang] : value);
+const findingTitle = (f) => localized(f.title) || f.code;
+const whereOf = (f) => f.ip + (f.port ? ":" + f.port : "");
+const sevLabel = (s) => text(s);
+const typeLabel = (device) => text((device && device.device_type) || "unknown");
+function sortedFindings(scan) {
+  return ((scan && scan.findings) || []).slice().sort((a, b) =>
+    sevRank(b.severity) - sevRank(a.severity) || ipNumber(a.ip) - ipNumber(b.ip) || (a.port || 0) - (b.port || 0) || String(a.code).localeCompare(b.code));
 }
-
-function deviceForIp(ip, scan = currentScan()) {
-  return (scan && scan.devices ? scan.devices : []).find((device) => device.ip === ip) || null;
+function ipNumber(ip) { return String(ip).split(".").reduce((n, p) => n * 256 + (Number(p) || 0), 0); }
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return text("dateUnknown");
+  return d.toLocaleString(lang === "ro" ? "ro-RO" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
 }
-
-function deviceType(device) {
-  const key = device && device.device_type ? device.device_type : "unknown";
-  return text(key, key);
-}
-
-function severityLabel(severity) {
-  return text(severity, severity);
-}
-
-function localized(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value[state.lang] : value;
-}
-
-function findingTitle(finding) {
-  return localized(finding.title) || finding.code || text("vulnerabilities", "Vulnerability");
-}
-
-function maskMac(value) {
-  if (!value) return "";
+function maskMac(value) { // defensive: the API already masks; never show more than the vendor prefix
+  if (!value) return "—";
   if (value.includes("*")) return value;
   return value.split(":").slice(0, 3).join(":") + ":**:**:**";
 }
-
-function announce(message, kind = "info") {
-  const box = $("messages");
-  box.className = "message " + kind;
-  box.textContent = message;
-  box.hidden = false;
-  clearTimeout(state.messageTimer);
-  state.messageTimer = setTimeout(() => { box.hidden = true; }, 5000);
+function announce(message) {
+  const box = $("announcer");
+  if (!box) return;
+  box.textContent = "";
+  setTimeout(() => { box.textContent = message; }, 50);
 }
-
-function setLanguage(lang) {
-  state.lang = lang;
-  state.chatMessages = [];
-  state.chatRequest = (state.chatRequest || 0) + 1;
-  try { localStorage.setItem("netcheck-language", lang); } catch (error) { /* storage is optional */ }
-  render();
+function highestSeverity(scan, ip) {
+  let best = null;
+  for (const f of (scan && scan.findings) || []) if (f.ip === ip && (best === null || sevRank(f.severity) > sevRank(best))) best = f.severity;
+  return best || "none";
 }
+function scoreVerdict(score) { return score >= 70 ? "good" : score >= 50 ? "medium" : "bad"; }
 
-function loadLanguage() {
-  try {
-    const saved = localStorage.getItem("netcheck-language");
-    if (saved === "ro" || saved === "en") state.lang = saved;
-  } catch (error) { /* storage is optional */ }
+/* Network access: never throws on HTTP errors, only when the server is unreachable. */
+async function api(path, options) {
+  let response;
+  try { response = await fetch(path, options); }
+  catch (error) { throw Object.assign(new Error("network"), { kind: "network" }); }
+  let data = null;
+  try { data = await response.json(); } catch (error) { /* not JSON */ }
+  return { ok: response.ok, status: response.status, data };
 }
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
-function applyStaticText() {
-  document.documentElement.lang = state.lang;
-  document.querySelectorAll("[data-i18n]").forEach((element) => {
-    element.textContent = text(element.dataset.i18n);
-  });
-  document.querySelectorAll("[data-i18n-aria]").forEach((element) => {
-    element.setAttribute("aria-label", text(element.dataset.i18nAria));
-  });
-  $("lang-ro").classList.toggle("active", state.lang === "ro");
-  $("lang-en").classList.toggle("active", state.lang === "en");
-}
-
-function renderScore(scan) {
-  const score = scan && scan.status === "ok" ? Number(scan.network_score) : 100;
-  $("score-number").textContent = String(score);
-  $("score-label").textContent = text(score >= 70 ? "scoreGood" : score >= 50 ? "scoreMedium" : "scoreBad");
-  $("score-ring").className = "ring score-" + (score >= 70 ? "good" : score >= 50 ? "medium" : "bad");
-  $("score-ring").setAttribute("aria-label", (text("scoreTitle", "Network score") + ": " + score + " / 100"));
-  const counts = Object.fromEntries(SEVERITIES.map((severity) => [severity, 0]));
-  findings(scan).forEach((finding) => { if (counts[finding.severity] !== undefined) counts[finding.severity] += 1; });
-  const list = $("sev-list");
-  list.replaceChildren();
-  SEVERITIES.forEach((severity) => {
-    const item = node("li", "severity-item sev-" + severity);
-    item.append(icon(severity === "high" ? "i-shield-x" : severity === "medium" ? "i-shield-alert" : "i-shield"));
-    item.append(node("span", "", severityLabel(severity)));
-    item.append(node("strong", "", String(counts[severity])));
-    list.append(item);
-  });
-}
-
-function graphPosition(index, total, width, height) {
-  if (index === 0) return { x: width / 2, y: height / 2 };
-  const angle = ((index - 1) / Math.max(1, total - 1)) * Math.PI * 2 - Math.PI / 2;
-  return { x: width / 2 + Math.cos(angle) * Math.min(width, height) * 0.34, y: height / 2 + Math.sin(angle) * Math.min(width, height) * 0.34 };
-}
-
-function renderGraph(scan) {
-  const container = $("network-graph");
-  container.replaceChildren();
-  const devices = scan && scan.devices ? scan.devices : [];
-  const width = 720;
-  const height = 420;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-  svg.setAttribute("role", "group");
-  svg.setAttribute("aria-label", text("networkTitle", "Device map"));
-  const center = devices.findIndex((device) => device.device_type === "router");
-  const ordered = center >= 0 ? [devices[center], ...devices.filter((_, index) => index !== center)] : devices;
-  const positions = ordered.map((_, index) => graphPosition(index, ordered.length, width, height));
-  positions.slice(1).forEach((position) => {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", String(positions[0].x)); line.setAttribute("y1", String(positions[0].y));
-    line.setAttribute("x2", String(position.x)); line.setAttribute("y2", String(position.y));
-    line.setAttribute("class", "graph-link"); svg.append(line);
-  });
-  const riskByIp = {};
-  findings(scan).forEach((finding) => {
-    if (!riskByIp[finding.ip] || severityRank(finding.severity) > severityRank(riskByIp[finding.ip])) riskByIp[finding.ip] = finding.severity;
-  });
-  ordered.forEach((device, index) => {
-    const position = positions[index];
-    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    const severity = riskByIp[device.ip] || "info";
-    group.setAttribute("class", "graph-node sev-" + severity);
-    group.setAttribute("role", "button");
-    group.setAttribute("tabindex", "0");
-    group.setAttribute("aria-label", device.ip + ", " + deviceType(device) + ", " + severityLabel(severity));
-    group.addEventListener("click", () => openDevice(device.ip));
-    group.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDevice(device.ip); }
-    });
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", String(position.x)); circle.setAttribute("cy", String(position.y)); circle.setAttribute("r", index === 0 ? "48" : "38");
-    group.append(circle);
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", String(position.x)); label.setAttribute("y", String(position.y + 66));
-    label.setAttribute("text-anchor", "middle"); label.textContent = device.ip;
-    group.append(label);
-    svg.append(group);
-  });
-  if (!devices.length) container.append(node("p", "muted", text("emptyText", "Import a scan to see devices.")));
-  else container.append(svg);
-  const list = $("device-list"); list.replaceChildren();
-  devices.forEach((device) => {
-    const button = node("button", "button", device.ip + " · " + deviceType(device));
-    button.type = "button";
-    button.addEventListener("click", () => openDevice(device.ip));
-    list.append(button);
-  });
-}
-
-function renderInspector(scan) {
-  const panel = $("panel-content");
-  panel.replaceChildren();
-  const allFindings = findings(scan);
-  if (state.panel === "chat") return renderChat(panel, scan);
-  if (state.panel === "detail" && state.selectedIp) return renderDeviceDetail(panel, scan, state.selectedIp);
-  const heading = node("h2", "", text("vulnerabilities", "Vulnerabilities"));
-  heading.id = "panel-title"; panel.append(heading);
-  if (!allFindings.length) {
-    panel.append(node("p", "empty-panel", text("cleanText", "No known vulnerabilities were found.")));
-    return;
+/* Keyed diff: update only what changed, keep DOM nodes (and focus) otherwise. */
+function reconcile(container, items, cache) {
+  const seen = new Set();
+  let ref = container.firstChild;
+  for (const item of items) {
+    let node = cache.get(item.key);
+    if (!node) { node = item.create(); cache.set(item.key, node); }
+    if (node.__sig !== item.sig) { item.update(node); node.__sig = item.sig; }
+    seen.add(item.key);
+    if (node === ref) ref = ref.nextSibling; else container.insertBefore(node, ref);
   }
-  const first = allFindings[0];
-  const priority = node("article", "priority-card sev-" + first.severity);
-  priority.append(node("span", "kicker", text("priority", "Most dangerous")));
-  priority.append(node("h3", "", findingTitle(first)));
-  priority.append(node("p", "", (text("firstStep", "First step") + ": " + ((first.fix && localized(first.fix)[0]) || text("noAdvice", "No remediation step.")))));
-  priority.append(node("p", "muted", first.ip));
-  panel.append(priority);
-  const list = node("ul", "finding-list");
-  allFindings.forEach((finding) => {
-    const item = node("li", "finding-item sev-" + finding.severity);
-    const button = node("button", "finding-button");
-    button.type = "button"; button.append(icon("i-warning")); button.append(node("span", "", findingTitle(finding)));
-    button.append(node("small", "", finding.ip + (finding.port ? ":" + finding.port : "")));
-    button.addEventListener("click", () => openDevice(finding.ip));
-    item.append(button); list.append(item);
-  });
-  panel.append(list);
+  for (const [key, node] of cache) if (!seen.has(key)) { node.remove(); cache.delete(key); }
 }
 
-function renderDeviceDetail(panel, scan, ip) {
-  const device = deviceForIp(ip, scan);
-  const back = node("button", "back-button", "‹ " + text("back", "Back"));
-  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); focusPanel(); });
-  panel.append(back);
-  const heading = node("h2", "", text("deviceDetails", "Device details"));
-  heading.id = "panel-title"; panel.append(heading);
-  if (!device) return;
-  panel.append(node("p", "device-ip", device.ip));
-  const details = node("dl", "device-facts");
-  [["type", deviceType(device)], ["mac", maskMac(device.mac_masked)].filter(Boolean)].forEach(([key, value]) => {
-    details.append(node("dt", "", text(key, key))); details.append(node("dd", "", value));
+/* ================= dropdown menu (accessible listbox) ================= */
+let menuCounter = 0;
+function createMenu(labelKey, onChange) {
+  const id = "menu" + (++menuCounter);
+  const root = el("div", "field");
+  const label = el("span", "", text(labelKey)); label.id = id + "-l";
+  const trigger = el("button", "menu-btn"); trigger.type = "button";
+  trigger.setAttribute("aria-haspopup", "listbox"); trigger.setAttribute("aria-expanded", "false");
+  const current = el("span"); current.id = id + "-v";
+  trigger.setAttribute("aria-labelledby", label.id + " " + current.id);
+  trigger.append(current, icon("i-chevron-down"));
+  const list = el("ul", "menu-list"); list.id = id + "-list"; list.setAttribute("role", "listbox"); list.tabIndex = -1; list.hidden = true;
+  list.setAttribute("aria-labelledby", label.id);
+  root.append(label, trigger, list);
+  let items = [], value = null, active = -1;
+  const optionEl = (i) => list.children[i];
+  function render() {
+    list.replaceChildren();
+    items.forEach((item, i) => {
+      const li = el("li", "menu-opt", item.label); li.id = id + "-o" + i; li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(item.value === value));
+      li.addEventListener("pointerdown", (event) => { event.preventDefault(); choose(i); });
+      list.append(li);
+    });
+    const chosen = items.find((i) => i.value === value);
+    current.textContent = chosen ? chosen.label : "—";
+  }
+  function setActive(i) {
+    if (active >= 0 && optionEl(active)) optionEl(active).classList.remove("active");
+    active = Math.max(0, Math.min(items.length - 1, i));
+    const option = optionEl(active);
+    if (option) { option.classList.add("active"); list.setAttribute("aria-activedescendant", option.id); option.scrollIntoView({ block: "nearest" }); }
+  }
+  function open() {
+    if (!items.length) return;
+    list.hidden = false; trigger.setAttribute("aria-expanded", "true");
+    setActive(Math.max(0, items.findIndex((i) => i.value === value)));
+    list.focus();
+  }
+  function close(refocus) {
+    if (list.hidden) return;
+    list.hidden = true; trigger.setAttribute("aria-expanded", "false");
+    if (refocus) trigger.focus();
+  }
+  function choose(i) {
+    const item = items[i]; close(true);
+    if (item && item.value !== value) { value = item.value; render(); onChange(value); }
+  }
+  trigger.addEventListener("click", () => (list.hidden ? open() : close(true)));
+  trigger.addEventListener("keydown", (event) => {
+    if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); open(); }
   });
-  panel.append(details);
-  panel.append(node("h3", "subheading", text("vulnerabilities", "Vulnerabilities")));
-  const deviceFindings = findings(scan).filter((finding) => finding.ip === ip);
-  deviceFindings.forEach((finding) => {
-    const article = node("article", "detail-finding sev-" + finding.severity);
-    article.append(node("h4", "", findingTitle(finding)));
-    article.append(node("p", "", localized(finding.explain) || text("catalogMissing", "Explanation unavailable.")));
-    if (finding.fix && localized(finding.fix).length) {
-      const steps = node("ol", "steps");
-      localized(finding.fix).forEach((step) => steps.append(node("li", "", step)));
-      article.append(steps);
+  list.addEventListener("keydown", (event) => {
+    const keys = { ArrowDown: () => setActive(active + 1), ArrowUp: () => setActive(active - 1), Home: () => setActive(0), End: () => setActive(items.length - 1) };
+    if (keys[event.key]) { event.preventDefault(); keys[event.key](); }
+    else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(active); }
+    else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(true); }
+    else if (event.key === "Tab") close(false);
+  });
+  list.addEventListener("blur", () => close(false));
+  return {
+    root,
+    get value() { return value; },
+    setItems(next, selected) { items = next; value = selected !== undefined ? selected : (items.some((i) => i.value === value) ? value : (items[0] ? items[0].value : null)); render(); },
+    setLabel() { label.textContent = text(labelKey); },
+  };
+}
+
+/* ================= side panel: score ring + severity indicators ================= */
+function createSidePanel() {
+  const root = el("div", "side");
+  const scoreCard = el("section", "card score-card");
+  scoreCard.append(el("h2", "card-title"));
+  const ring = el("div", "ring"); ring.setAttribute("role", "img");
+  const svg = svgEl("svg"); svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("aria-hidden", "true");
+  const track = svgEl("circle", "track"); const arc = svgEl("circle", "arc");
+  for (const c of [track, arc]) { c.setAttribute("cx", "60"); c.setAttribute("cy", "60"); c.setAttribute("r", "52"); }
+  arc.setAttribute("pathLength", "100"); arc.setAttribute("stroke-dasharray", "0 100");
+  svg.append(track, arc);
+  const center = el("div", "center"); const num = el("span", "num"); const of = el("span", "of");
+  center.append(num, of); ring.append(svg, center);
+  const verdict = el("p", "verdict"); const verdictIcon = icon("i-check"); const verdictText = el("span"); verdict.append(verdictIcon, verdictText);
+  const note = el("p", "score-note");
+  const info = el("div", "score-info"); info.append(verdict, note);
+  scoreCard.append(ring, info);
+  const sevCard = el("section", "card sev-card"); sevCard.append(el("h2"));
+  const rows = el("ul", "sev-rows"); sevCard.append(rows);
+  const rowParts = {};
+  for (const sev of SEVERITIES) {
+    const li = el("li", "sev-row sev-" + sev);
+    const ic = el("span", "ic"); ic.append(icon(SEV_ICON[sev]));
+    const lab = el("span", "lab"); const count = el("span", "num"); const bar = el("span", "bar"); const fill = el("i"); bar.append(fill); bar.setAttribute("aria-hidden", "true");
+    li.append(ic, lab, count, bar); rows.append(li); rowParts[sev] = { li, lab, count, fill };
+  }
+  root.append(scoreCard, sevCard);
+  let lastSig = "";
+  function update(scan) {
+    const score = scan && scan.status === "ok" ? Number(scan.network_score) : 0;
+    const counts = Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
+    for (const f of (scan && scan.findings) || []) if (counts[f.severity] !== undefined) counts[f.severity] += 1;
+    const sig = [lang, score, SEVERITIES.map((s) => counts[s]).join(",")].join("|");
+    if (sig === lastSig) return;
+    lastSig = sig;
+    const kind = scoreVerdict(score);
+    const label = text(kind === "good" ? "scoreGood" : kind === "medium" ? "scoreMedium" : "scoreBad");
+    scoreCard.firstChild.textContent = text("scoreTitle");
+    num.textContent = String(score); of.textContent = text("scoreOf");
+    arc.setAttribute("stroke-dasharray", score + " 100");
+    ring.setAttribute("aria-label", text("scoreAria", { score, label }));
+    scoreCard.className = "card score-card";
+    verdict.className = "verdict " + kind;
+    ring.style.setProperty("--arc", "var(--" + (kind === "good" ? "good" : kind === "medium" ? "medium" : "high") + ")");
+    verdictIcon.firstChild.setAttribute("href", "#" + (kind === "good" ? "i-check" : kind === "medium" ? "i-alert" : "i-sev-high"));
+    verdictText.textContent = label; note.textContent = text("scoreNote");
+    sevCard.firstChild.textContent = text("severityTitle");
+    const total = Math.max(1, SEVERITIES.reduce((n, s) => n + counts[s], 0));
+    for (const sev of SEVERITIES) {
+      const part = rowParts[sev];
+      part.lab.textContent = sevLabel(sev); part.count.textContent = String(counts[sev]);
+      part.fill.style.width = Math.round((counts[sev] / total) * 100) + "%";
+      part.li.setAttribute("aria-label", text("countAria", { n: counts[sev], label: sevLabel(sev) }));
     }
-    panel.append(article);
-  });
-  if (!deviceFindings.length) panel.append(node("p", "muted", text("noDeviceFindings", "No findings for this device.")));
-  const ask = node("button", "button primary");
-  ask.type = "button"; ask.append(icon("i-shield")); ask.append(node("span", "", text("askAI", "Ask AI")));
-  ask.addEventListener("click", () => { state.panel = "chat"; render(); focusPanel(); });
-  panel.append(ask);
+  }
+  return { root, update };
 }
 
-function renderChat(panel, scan) {
-  const back = node("button", "back-button", "‹ " + text("back", "Back"));
-  back.type = "button"; back.addEventListener("click", () => { state.panel = "list"; render(); focusPanel(); });
-  panel.append(back);
-  const heading = node("h2", "", text("chatTitle", "Explanations for you"));
-  heading.id = "panel-title"; panel.append(heading);
-  panel.append(node("p", "privacy-note", text("chatNotice", "AI is not connected yet. Local explanations remain available.")));
-  const context = node("p", "context-chip");
-  context.textContent = state.selectedIp ? text("device", "Device") + ": " + state.selectedIp : text("networkTitle", "Device map");
-  panel.append(context);
-  const log = node("div", "chat-log");
-  log.setAttribute("role", "log");
-  log.setAttribute("aria-live", "polite");
-  const pending = state.chatMessages.some((message) => message.pending);
-  state.chatMessages.forEach((message) => {
-    const item = node("article", "chat-message " + message.role);
-    item.append(node("strong", "", message.role === "user" ? text("you") : text("assistant", "Asistent")));
-    if (message.mode) {
-      item.append(node("span", "chat-mode", message.mode === "ai"
-        ? text("aiAnswer", "Asistent AI")
-        : text("docAnswer", "Răspuns din documentație")));
+/* ================= NetworkView: score, indicators, graph, vulnerabilities, inspector ================= */
+function createNetworkView({ allowAsk = true } = {}) {
+  const state = { scan: null, scanId: null, selectedIp: null, panel: "closed", size: { w: 0, h: 0 }, chat: { key: "", messages: [], pending: false } };
+  const root = el("div", "nv");
+  /* graph */
+  const graf = el("section", "card nv-graf"); graf.setAttribute("aria-labelledby", "g-title-" + (++menuCounter));
+  const grafHead = el("div", "nv-graf-head"); const grafTitle = el("h2"); grafTitle.id = graf.getAttribute("aria-labelledby");
+  const grafHint = el("p", "muted"); grafHead.append(grafTitle, grafHint);
+  const graph = el("div", "graph");
+  const svg = svgEl("svg", "map"); svg.setAttribute("role", "group");
+  const edgesG = svgEl("g"); const nodesG = svgEl("g"); svg.append(edgesG, nodesG);
+  const none = el("p", "none muted"); none.hidden = true;
+  const srList = el("ul", "sr-only");
+  graph.append(svg, none, srList); graf.append(grafHead, graph);
+  /* lateral: side panel + inspector overlay in the same grid cell */
+  const lateral = el("div", "nv-lateral");
+  const side = createSidePanel();
+  const inspector = el("aside", "inspector"); inspector.dataset.open = "false"; inspector.setAttribute("aria-label", text("deviceDetails"));
+  lateral.append(side.root, inspector);
+  /* vulnerabilities band */
+  const vuln = el("section", "card nv-vuln"); const vulnTitleId = "v-title-" + (++menuCounter); vuln.setAttribute("aria-labelledby", vulnTitleId);
+  const vulnHead = el("div", "nv-vuln-head"); const vulnTitle = el("h2"); vulnTitle.id = vulnTitleId; const vulnCount = el("p", "muted");
+  vulnHead.append(vulnTitle, vulnCount);
+  const vlist = el("ul", "vlist"); const clean = el("div", "clean"); clean.hidden = true;
+  vuln.append(vulnHead, vlist, clean);
+  root.append(graf, lateral, vuln);
+
+  const nodeCache = new Map(); const rowCache = new Map(); const srCache = new Map(); let genericHub = null;
+
+  /* ---- graph ---- */
+  function positions(devices) {
+    const { w, h } = state.size; const pos = new Map();
+    if (!w || !h) return pos;
+    const cx = w / 2, cy = h / 2;
+    const hub = devices.find((d) => d.device_type === "router");
+    const others = devices.filter((d) => d !== hub).sort((a, b) => ipNumber(a.ip) - ipNumber(b.ip));
+    if (hub) pos.set(hub.ip, { x: cx, y: cy, r: 40, hub: true });
+    const rx = Math.max(100, w / 2 - 80), ry = Math.max(122, h / 2 - 70);
+    const n = others.length;
+    const outer = n <= 10 ? n : Math.ceil(n * 0.62), inner = n - outer;
+    others.forEach((device, i) => {
+      const onOuter = i < outer, count = onOuter ? outer : inner, idx = onOuter ? i : i - outer;
+      const scale = onOuter ? 1 : 0.55;
+      const angle = -Math.PI / 2 + (idx / Math.max(1, count)) * Math.PI * 2 + (onOuter ? 0 : Math.PI / Math.max(1, count));
+      pos.set(device.ip, { x: cx + Math.cos(angle) * rx * scale, y: cy + Math.sin(angle) * ry * scale, r: 28, hub: false });
+    });
+    return pos;
+  }
+  function applyGraph() {
+    const scan = state.scan, devices = (scan && scan.devices) || [];
+    grafTitle.textContent = text("networkTitle"); grafHint.textContent = text("networkHint");
+    svg.setAttribute("aria-label", text("networkTitle"));
+    none.hidden = devices.length > 0; none.textContent = text("noDevices");
+    const pos = positions(devices);
+    const hasRouter = devices.some((d) => d.device_type === "router");
+    reconcile(nodesG, devices.map((device) => {
+      const sev = highestSeverity(scan, device.ip), p = pos.get(device.ip) || { x: 0, y: 0, r: 28, hub: false };
+      return { key: device.ip, sig: [lang, device.device_type, sev, p.hub].join("|"), create: () => buildNode(device.ip), update: (g) => updateNode(g, device, sev, p.hub) };
+    }), nodeCache);
+    for (const [ip, g] of nodeCache) {
+      const p = pos.get(ip); if (!p) continue;
+      const t = "translate(" + Math.round(p.x) + "," + Math.round(p.y) + ")";
+      if (g.getAttribute("transform") !== t) g.setAttribute("transform", t);
     }
-    item.append(node("p", "", message.text));
-    if (message.sources && message.sources.length) {
-      const sources = node("p", "chat-sources", text("sources", "Sources") + ": " +
-        message.sources.map((source) => source.title || source.id).join(", "));
-      item.append(sources);
+    /* generic hub when there is no router in the scan */
+    if (!hasRouter && devices.length) {
+      if (!genericHub) { genericHub = svgEl("g", "node hub generic"); genericHub.setAttribute("role", "img"); buildHubGlyph(genericHub); svg.insertBefore(genericHub, nodesG); }
+      genericHub.setAttribute("transform", "translate(" + Math.round(state.size.w / 2) + "," + Math.round(state.size.h / 2) + ")");
+      genericHub.setAttribute("aria-label", text("networkNode")); genericHub.querySelector("text").textContent = text("networkNode");
+    } else if (genericHub) { genericHub.remove(); genericHub = null; }
+    /* curved links from the centre to every other node */
+    edgesG.replaceChildren();
+    const cx = state.size.w / 2, cy = state.size.h / 2;
+    for (const device of devices) {
+      const p = pos.get(device.ip); if (!p || p.hub) continue;
+      const mx = (cx + p.x) / 2, my = (cy + p.y) / 2, dx = p.x - cx, dy = p.y - cy;
+      const path = svgEl("path", "edge");
+      path.setAttribute("d", "M" + cx + " " + cy + " Q" + (mx - dy * 0.18) + " " + (my + dx * 0.18) + " " + p.x + " " + p.y);
+      edgesG.append(path);
     }
-    log.append(item);
-  });
-  panel.append(log);
-  const questions = node("div", "chat-questions");
-  [text("chatQuestion", "What do the results mean?"), text("chatSteps", "Where do I start?")].forEach((question) => {
-    const button = node("button", "button", question); button.type = "button";
-    button.disabled = pending;
-    button.addEventListener("click", () => askLearning(scan, question));
-    questions.append(button);
-  });
-  panel.append(questions);
-  const form = node("form", "chat-form");
-  const input = node("input");
-  input.type = "text"; input.disabled = pending; input.required = true; input.maxLength = 500;
-  input.placeholder = text("chatPlaceholder", "Ask about this scan");
-  input.setAttribute("aria-label", text("chatPlaceholder", "Ask about this scan"));
-  const submit = node("button", "button primary", text("send", "Send"));
-  submit.type = "submit"; submit.disabled = pending;
-  form.append(input, submit);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    askLearning(scan, input.value);
-  });
-  panel.append(form);
-}
-
-async function askLearning(scan, question) {
-  const value = question.trim();
-  if (!value || !scan || state.chatMessages.some((message) => message.pending)) return;
-  const requestId = state.chatRequest = (state.chatRequest || 0) + 1;
-  const scanId = scan.id, deviceIp = state.selectedIp, lang = state.lang;
-  state.chatMessages.push({ role: "user", text: value });
-  state.chatMessages.push({ role: "assistant", pending: true, text: text("loading", "Loading…") });
-  render(); focusPanel();
-  try {
-    const response = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scan_id: scanId,
-        device_ip: deviceIp,
-        question: value,
-        lang
-      })
-    });
-    if (!response.ok) throw new Error("ask");
-    const result = await response.json();
-    if (requestId !== state.chatRequest) return;
-    state.chatMessages[state.chatMessages.length - 1] = {
-      role: "assistant",
-      text: result.answer,
-      sources: result.sources,
-      mode: result.mode
-    };
-  } catch (error) {
-    if (requestId !== state.chatRequest) return;
-    state.chatMessages[state.chatMessages.length - 1] = {
-      role: "assistant",
-      text: text("chatError", "The assistant could not answer right now.")
-    };
+    reconcile(srList, devices.map((device) => ({
+      key: device.ip, sig: [lang, device.device_type, highestSeverity(scan, device.ip)].join("|"),
+      create: () => { const li = el("li"); const b = el("button"); b.type = "button"; b.tabIndex = -1; b.addEventListener("click", () => selectDevice(device.ip)); li.append(b); return li; },
+      update: (li) => { li.firstChild.textContent = nodeAria(device); },
+    })), srCache);
   }
-  render();
-  if (state.view === "home" && state.panel === "chat") focusPanel();
-}
-
-function renderHome() {
-  const scan = currentScan();
-  const selector = $("scan-select");
-  selector.replaceChildren();
-  state.scans.forEach((item) => {
-    const option = node("option", "", item.file || text("noScans", "No scans"));
-    option.value = String(item.id);
-    selector.append(option);
-  });
-  selector.value = state.currentScanId == null ? "" : String(state.currentScanId);
-  $("home-content").hidden = !scan || scan.status !== "ok";
-  $("empty-state").hidden = Boolean(scan);
-  $("scan-error").hidden = !scan || scan.status === "ok";
-  renderScore(scan); renderGraph(scan); renderInspector(scan);
-}
-
-function renderHistory() {
-  const list = $("history-list"); list.replaceChildren();
-  $("history-empty").hidden = state.scans.length > 0;
-  $("history-content").hidden = state.scans.length === 0;
-  $("btn-clear").hidden = state.scans.length === 0;
-  state.scans.slice().reverse().forEach((scan) => {
-    const item = node("li", "history-row");
-    item.append(node("strong", "", scan.file || text("invalidScan", "Invalid file")));
-    item.append(node("span", "", scan.scanned_at ? new Date(scan.scanned_at).toLocaleString(state.lang) : ""));
-    item.append(node("b", "", scan.network_score == null ? "—" : String(scan.network_score)));
-    list.append(item);
-  });
-  renderChart();
-  renderComparisonPickers();
-}
-
-function renderComparisonPickers() {
-  const valid = state.scans.filter((scan) => scan.status === "ok");
-  ["cmp-before", "cmp-after"].forEach((id, index) => {
-    const select = $(id), previous = select.value;
-    select.replaceChildren();
-    valid.forEach((scan) => {
-      const option = node("option", "", scan.file + " (#" + scan.id + ")");
-      option.value = String(scan.id); select.append(option);
-    });
-    select.value = valid.some((scan) => String(scan.id) === previous)
-      ? previous : valid.length ? String(valid[index ? valid.length - 1 : 0].id) : "";
-  });
-  updateComparison();
-}
-
-async function updateComparison() {
-  const before = $("cmp-before").value, after = $("cmp-after").value;
-  const request = state.comparisonRequest = (state.comparisonRequest || 0) + 1;
-  const lang = state.lang, box = $("comparison");
-  box.replaceChildren();
-  if (!before || !after || before === after) {
-    box.append(node("p", "muted", text("compareNeed"))); return;
+  const nodeAria = (device) => text("nodeAria", { ip: device.ip, type: typeLabel(device), severity: highestSeverity(state.scan, device.ip) === "none" ? text("noFindingsShort") : sevLabel(highestSeverity(state.scan, device.ip)) });
+  function buildHubGlyph(g) {
+    const disc = svgEl("circle", "disc"); disc.setAttribute("r", "40");
+    const glyph = svgEl("use", "glyph"); glyph.setAttribute("href", "#i-network");
+    for (const [k, v] of [["x", -20], ["y", -20], ["width", 40], ["height", 40]]) glyph.setAttribute(k, String(v));
+    const label = svgEl("text"); label.setAttribute("y", "64");
+    g.append(disc, glyph, label);
   }
-  try {
-    const response = await fetch("/api/compare?a=" + before + "&b=" + after);
-    if (!response.ok) throw new Error("compare");
-    const result = await response.json();
-    if (request !== state.comparisonRequest || state.lang !== lang || state.view !== "history") return;
-    box.append(node("p", "", text("scoreChange").replace("{before}", result.score_before).replace("{after}", result.score_after)));
-    [["resolved", result.resolved_findings], ["added", result.new_findings]].forEach(([key, values]) => {
-      box.append(node("h3", "subheading", text(key)));
-      const list = node("ul");
-      values.forEach((finding) => list.append(node("li", "", finding.code + " · " + finding.ip + (finding.port ? ":" + finding.port : ""))));
-      if (!values.length) list.append(node("li", "", text("noChanges")));
-      box.append(list);
-    });
-  } catch (error) {
-    if (request === state.comparisonRequest && state.lang === lang) box.append(node("p", "", text("compareFailed")));
+  function buildNode(ip) {
+    const g = svgEl("g", "node"); g.dataset.ip = ip;
+    g.setAttribute("role", "button"); g.setAttribute("tabindex", "0"); g.setAttribute("aria-pressed", "false");
+    const focus = svgEl("circle", "focus"), disc = svgEl("circle", "disc"), glyph = svgEl("use", "glyph");
+    const badge = svgEl("g", "badge-wrap"), badgeBg = svgEl("circle", "badge"), badgeIcon = svgEl("use", "badge-icon");
+    badgeBg.setAttribute("r", "12"); badge.append(badgeBg, badgeIcon);
+    const t1 = svgEl("text"), t2 = svgEl("text", "sub");
+    g.append(focus, disc, glyph, badge, t1, t2);
+    g.__parts = { focus, disc, glyph, badge, badgeIcon, t1, t2 };
+    g.addEventListener("click", () => selectDevice(ip));
+    g.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectDevice(ip); } });
+    return g;
   }
-}
+  function updateNode(g, device, sev, hub) {
+    const { focus, disc, glyph, badge, badgeIcon, t1, t2 } = g.__parts;
+    const r = hub ? 40 : 28, g2 = hub ? 22 : 15;
+    g.setAttribute("class", "node sev-" + sev + (hub ? " hub" : ""));
+    focus.setAttribute("r", String(r + 6)); disc.setAttribute("r", String(r));
+    glyph.setAttribute("href", "#" + (TYPE_ICON[device.device_type] || TYPE_ICON.unknown));
+    for (const [k, v] of [["x", -g2], ["y", -g2], ["width", g2 * 2], ["height", g2 * 2]]) glyph.setAttribute(k, String(v));
+    badge.setAttribute("transform", "translate(" + Math.round(r * 0.72) + "," + -Math.round(r * 0.72) + ")");
+    badgeIcon.setAttribute("href", "#" + SEV_ICON[sev]);
+    for (const [k, v] of [["x", -9], ["y", -9], ["width", 18], ["height", 18]]) badgeIcon.setAttribute(k, String(v));
+    t1.setAttribute("y", String(r + 24)); t2.setAttribute("y", String(r + 44));
+    t1.textContent = typeLabel(device) + " · ." + String(device.ip).split(".").pop();
+    t2.textContent = sev === "none" ? text("noFindingsShort") : sevLabel(sev);
+    g.setAttribute("aria-label", nodeAria(device));
+  }
 
-function renderChart() {
-  const valid = state.scans.filter((scan) => scan.status === "ok" && Number.isFinite(scan.network_score));
-  const wrap = $("chart-wrap"); wrap.replaceChildren();
-  if (!valid.length) { wrap.append(node("p", "muted", text("chartEmpty", "No valid scans yet."))); return; }
-  const width = 720, height = 220, left = 44, right = 20, top = 24, bottom = 40;
-  const x = (index) => left + (valid.length === 1 ? (width - left - right) / 2 : (width - left - right) * index / (valid.length - 1));
-  const y = (score) => top + (100 - score) * (height - top - bottom) / 100;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 " + width + " " + height); svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", text("chartTitle", "Score over time"));
-  [0, 50, 100].forEach((score) => {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", String(left)); line.setAttribute("x2", String(width - right));
-    line.setAttribute("y1", String(y(score))); line.setAttribute("y2", String(y(score))); line.setAttribute("class", "chart-grid"); svg.append(line);
-  });
-  const path = valid.map((scan, index) => (index ? "L" : "M") + x(index) + " " + y(scan.network_score)).join(" ");
-  const curve = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  curve.setAttribute("d", path); curve.setAttribute("class", "chart-line"); svg.append(curve);
-  valid.forEach((scan, index) => {
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", String(x(index))); circle.setAttribute("cy", String(y(scan.network_score)));
-    circle.setAttribute("r", "7"); circle.setAttribute("class", "chart-point");
-    circle.setAttribute("aria-label", String(scan.network_score)); svg.append(circle);
-  });
-  wrap.append(svg);
-}
-
-function render() {
-  applyStaticText();
-  document.querySelectorAll("main > section").forEach((section) => { section.hidden = section.id !== "view-" + state.view; });
-  document.querySelectorAll(".nav-btn").forEach((button) => {
-    const active = button.dataset.view === state.view; button.classList.toggle("active", active);
-    if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
-  });
-  if (state.view === "home") renderHome(); else if (state.view === "history") renderHistory();
-}
-
-async function loadScans() {
-  try {
-    const response = await fetch("/api/scans");
-    if (!response.ok) throw new Error("scans");
-    state.scans = await response.json();
-    if (state.scans.length) state.currentScanId = state.scans[state.scans.length - 1].id;
-    if (state.scans.length) {
-      const detail = await fetch("/api/scans/" + encodeURIComponent(state.currentScanId));
-      if (detail.ok) state.scans[state.scans.length - 1] = { ...state.scans[state.scans.length - 1], ...(await detail.json()) };
+  /* ---- vulnerabilities ---- */
+  function applyList() {
+    const scan = state.scan, all = sortedFindings(scan);
+    vulnTitle.textContent = text("vulnTitle"); vulnCount.textContent = text("vulnCount", { n: all.length });
+    clean.hidden = all.length > 0; vlist.hidden = all.length === 0;
+    if (!all.length) {
+      clean.replaceChildren(icon("i-check"), el("strong", "", text("cleanTitle")), el("p", "", text("cleanText")));
+      reconcile(vlist, [], rowCache); return;
     }
-    render();
-  } catch (error) {
-    announce(text("loadFailed", "Could not load scans."), "error");
-    render();
-  }
-}
-
-function focusPanel() {
-  const panel = $("inspector"); panel.focus({ preventScroll: true });
-}
-
-async function importFile(file) {
-  if (!file || !/\.xml$/i.test(file.name) || file.size > 10 * 1024 * 1024) {
-    announce(text("badFile", "Choose one XML file no larger than 10 MB."), "error"); return;
-  }
-  try {
-    const response = await fetch("/api/import?filename=" + encodeURIComponent(file.name), {
-      method: "POST", headers: { "Content-Type": "application/xml" }, body: await file.text()
+    const items = []; let lastSev = null;
+    all.forEach((finding, index) => {
+      if (finding.severity !== lastSev) {
+        lastSev = finding.severity;
+        items.push({ key: "g:" + finding.severity, sig: lang + finding.severity, create: () => el("li", "vgroup sev-" + finding.severity), update: (li) => { li.replaceChildren(icon(SEV_ICON[finding.severity]), el("span", "", sevLabel(finding.severity))); } });
+      }
+      const key = finding.ip + "|" + (finding.port ?? "") + "|" + finding.code, step = (localized(finding.fix) || [])[0] || "";
+      items.push({
+        key, sig: [lang, index === 0, findingTitle(finding), step, finding.severity].join("|"),
+        create: () => { const li = el("li"); const b = el("button"); b.type = "button"; b.dataset.ip = finding.ip; b.addEventListener("click", () => selectDevice(finding.ip)); li.append(b); return li; },
+        update: (li) => fillRow(li.firstChild, finding, index === 0, step),
+      });
     });
-    if (!response.ok) throw new Error("import");
-    const result = await response.json();
-    state.scans.push({ id: result.scan_id, ...result, scanned_at: new Date().toISOString() });
-    state.chatRequest = (state.chatRequest || 0) + 1;
-    state.chatMessages = []; state.selectedIp = null;
-    state.currentScanId = result.scan_id; state.view = "home"; state.panel = "list";
-    announce(text("imported", "The file was imported.")); render();
-  } catch (error) {
-    announce(text("importFailed", "Import failed."), "error");
+    reconcile(vlist, items, rowCache);
   }
+  function fillRow(b, finding, priority, step) {
+    b.className = "vrow sev-" + finding.severity + (priority ? " priority" : "");
+    const sq = el("span", "sq"); sq.append(icon(SEV_ICON[finding.severity]));
+    b.setAttribute("aria-label", text("rowAria", { title: findingTitle(finding), where: whereOf(finding), severity: sevLabel(finding.severity) }));
+    if (priority) {
+      const body = el("span", "body");
+      const kick = el("span", "kick"); kick.append(icon("i-alert"), el("span", "", text("priority")));
+      const stepLine = el("span", "step"); stepLine.append(el("b", "", text("firstStep") + ": "), document.createTextNode(step || text("noFix")));
+      body.append(kick, el("span", "t", findingTitle(finding)), stepLine, el("span", "w", whereOf(finding)));
+      b.replaceChildren(sq, body, icon("i-chevron", "go"));
+    } else {
+      b.replaceChildren(sq, el("span", "t", findingTitle(finding)), el("span", "w", whereOf(finding)), icon("i-chevron", "go"));
+    }
+    b.setAttribute("aria-pressed", String(b.dataset.ip === state.selectedIp));
+  }
+  function refreshSelection() {
+    for (const [ip, g] of nodeCache) g.setAttribute("aria-pressed", String(ip === state.selectedIp));
+    for (const li of vlist.querySelectorAll("li > button")) li.setAttribute("aria-pressed", String(li.dataset.ip === state.selectedIp));
+  }
+
+  /* ---- inspector ---- */
+  const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 899px)") : { matches: false, addEventListener() {} };
+  function applyInert() {
+    const modal = narrowQuery.matches && state.panel !== "closed";
+    for (const part of [graf, side.root, vuln]) {
+      if (modal) { part.setAttribute("inert", ""); part.setAttribute("aria-hidden", "true"); } else { part.removeAttribute("inert"); part.removeAttribute("aria-hidden"); }
+    }
+  }
+  if (narrowQuery.addEventListener) narrowQuery.addEventListener("change", applyInert);
+  const deviceOf = (ip) => ((state.scan && state.scan.devices) || []).find((d) => d.ip === ip) || null;
+
+  function inspectorHead(titleText, onBack, backLabel) {
+    const head = el("div", "insp-head");
+    const back = button(backLabel || text("back"), "plain", "i-back"); back.addEventListener("click", onBack);
+    const h = el("h2", "", titleText); h.tabIndex = -1; h.dataset.focus = "1";
+    head.append(back, h);
+    return head;
+  }
+  function renderDetail() {
+    const device = deviceOf(state.selectedIp);
+    if (!device) { closePanel(false); return; }
+    inspector.setAttribute("aria-label", text("deviceDetails"));
+    const body = el("div", "insp-body");
+    body.append(el("p", "dev-ip", device.ip));
+    const facts = el("dl", "facts");
+    for (const [k, v] of [[text("deviceType"), typeLabel(device)], [text("vendor"), device.vendor || "—"], [text("macLabel"), maskMac(device.mac_masked)]]) { facts.append(el("dt", "", k), el("dd", "", v)); }
+    body.append(facts);
+    body.append(el("h3", "", text("portsTitle")));
+    const ports = el("div", "ports");
+    for (const p of device.ports || []) ports.append(el("span", "port", p.port + "/" + p.protocol + (p.service ? " · " + p.service : "") + (p.product ? " · " + p.product + (p.version ? " " + p.version : "") : "")));
+    if (!(device.ports || []).length) ports.append(el("span", "muted", text("noPorts")));
+    body.append(ports);
+    const mine = sortedFindings(state.scan).filter((f) => f.ip === device.ip);
+    if (!mine.length) body.append(el("p", "muted", text("noDeviceFindings")));
+    for (const finding of mine) {
+      const card = el("article", "dfind sev-" + finding.severity);
+      const h4 = el("h4"); h4.append(icon(SEV_ICON[finding.severity]), el("span", "", findingTitle(finding) + (finding.port ? " · " + finding.port : "")));
+      card.append(h4, el("p", "", localized(finding.explain) || text("missingExplain")));
+      const steps = localized(finding.fix) || [];
+      if (steps.length) { card.append(el("p", "sub", text("whatToDo"))); const ol = el("ol", "steps"); for (const s of steps) ol.append(el("li", "", s)); card.append(ol); }
+      body.append(card);
+    }
+    if (allowAsk) { const ask = button(text("askAI"), "primary", "i-chat"); ask.addEventListener("click", openChat); const row = el("div", "insp-actions"); row.append(ask); body.append(row); }
+    inspector.replaceChildren(inspectorHead(text("deviceDetails"), () => closePanel(true)), body);
+  }
+  function chatKeyNow() { return [state.scanId, state.selectedIp, lang].join("|"); }
+  function renderChat() {
+    if (state.chat.key !== chatKeyNow()) state.chat = { key: chatKeyNow(), messages: [], pending: false };
+    const device = deviceOf(state.selectedIp);
+    inspector.setAttribute("aria-label", text("chatTitle"));
+    const head = inspectorHead(text("chatTitle"), () => { if (state.selectedIp) openDetail(); else closePanel(true); });
+    const body = el("div", "insp-body");
+    body.append(el("p", "privacy", text("chatNotice")));
+    body.append(el("p", "context", text("chatAbout", { name: device ? device.ip + " · " + typeLabel(device) : text("chatNetwork") })));
+    const log = el("div", "chat-log"); log.setAttribute("role", "log"); log.setAttribute("aria-live", "polite"); log.setAttribute("aria-label", text("chatLogLabel"));
+    const chips = el("div", "chips");
+    const questions = [text("chatQ1"), text("chatQ2")];
+    const form = el("form", "chat-form"); const input = el("input"); input.type = "text"; input.maxLength = 500; input.required = true;
+    input.placeholder = text("chatPlaceholder"); input.setAttribute("aria-label", text("chatPlaceholder"));
+    const send = button(text("send"), "primary", "i-send"); send.type = "submit";
+    form.append(input, send);
+    function paintLog() {
+      log.replaceChildren();
+      for (const m of state.chat.messages) {
+        const box = el("article", "msg" + (m.role === "user" ? " user" : ""));
+        box.append(el("span", "who", m.role === "user" ? text("you") : text("assistant")));
+        if (m.mode) box.append(el("span", "badge", m.mode === "ai" ? text("badgeAI") : text("badgeDocs")));
+        box.append(el("p", "", m.pending ? text("chatThinking") : m.text));
+        if (m.sources && m.sources.length) box.append(el("p", "src", text("sources") + ": " + m.sources.map((s) => localized(s.title) || s.id).join(", ")));
+        log.append(box);
+      }
+      for (const b of chips.querySelectorAll("button")) b.disabled = state.chat.pending;
+      input.disabled = send.disabled = state.chat.pending;
+      log.scrollTop = log.scrollHeight;
+    }
+    async function ask(question) {
+      const value = question.trim();
+      if (!value || state.chat.pending) return;
+      const chat = state.chat; chat.pending = true;
+      chat.messages.push({ role: "user", text: value }, { role: "assistant", pending: true });
+      paintLog();
+      let reply;
+      try {
+        const r = await api("/api/ask", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ scan_id: state.scanId, device_ip: state.selectedIp, question: value, lang }) });
+        if (r.ok && r.data && typeof r.data.answer === "string") reply = { role: "assistant", text: r.data.answer, sources: r.data.sources, mode: r.data.mode === "ai" ? "ai" : "docs" };
+      } catch (error) { /* offline: fall through to the local explanation */ }
+      if (!reply) reply = { role: "assistant", text: unavailableText() };
+      chat.messages[chat.messages.length - 1] = reply; chat.pending = false;
+      if (state.chat === chat && state.panel === "chat") { paintLog(); input.value = ""; input.focus(); }
+    }
+    for (const q of questions) { const c = el("button", "chip", q); c.type = "button"; c.addEventListener("click", () => ask(q)); chips.append(c); }
+    form.addEventListener("submit", (event) => { event.preventDefault(); const v = input.value; input.value = ""; ask(v); });
+    body.append(log, chips);
+    paintLog();
+    inspector.replaceChildren(head, body, form);
+  }
+  /* If the assistant is down we show the scan's own explanation: only text that came from the catalog. */
+  function unavailableText() {
+    const pool = sortedFindings(state.scan).filter((f) => !state.selectedIp || f.ip === state.selectedIp).slice(0, 3);
+    const lines = [text("chatUnavailable")];
+    if (!pool.length) lines.push(text("noDeviceFindings"));
+    for (const f of pool) {
+      lines.push("", findingTitle(f) + " (" + whereOf(f) + ")", localized(f.explain) || text("missingExplain"));
+      (localized(f.fix) || []).forEach((s, i) => lines.push((i + 1) + ". " + s));
+    }
+    return lines.join("\n");
+  }
+  function focusPanel() { const h = inspector.querySelector("[data-focus]"); if (h) h.focus({ preventScroll: true }); }
+  function showPanel(kind) {
+    state.panel = kind;
+    if (kind === "detail") renderDetail(); else if (kind === "chat") renderChat();
+    inspector.dataset.open = String(kind !== "closed");
+    applyInert();
+  }
+  function openDetail() { showPanel("detail"); focusPanel(); }
+  function openChat() { showPanel("chat"); focusPanel(); }
+  function closePanel(returnFocus) {
+    const ip = state.selectedIp;
+    showPanel("closed");
+    if (!returnFocus) return;
+    const target = nodeCache.get(ip) || [...vlist.querySelectorAll("li > button")].find((b) => b.dataset.ip === ip);
+    if (target) target.focus({ preventScroll: true });
+  }
+  function selectDevice(ip) { state.selectedIp = ip; refreshSelection(); openDetail(); }
+  function onEscape() {
+    if (state.panel === "chat" && state.selectedIp) { openDetail(); return true; }
+    if (state.panel !== "closed") { closePanel(true); return true; }
+    return false;
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver((entries) => {
+      const box = entries[0].contentRect;
+      const w = Math.round(box.width), h = Math.round(box.height);
+      if (w === state.size.w && h === state.size.h) return;
+      state.size = { w, h }; svg.setAttribute("viewBox", "0 0 " + w + " " + h); applyGraph();
+    }).observe(graph);
+  }
+
+  function update(scan, scanId) {
+    state.scan = scan; state.scanId = scanId;
+    if (state.selectedIp && !deviceOf(state.selectedIp)) { state.selectedIp = null; if (state.panel !== "closed") showPanel("closed"); }
+    side.update(scan); applyGraph(); applyList(); refreshSelection();
+    if (state.panel === "detail") { const sig = detailSig(); if (sig !== state.detailSig) { state.detailSig = sig; renderDetail(); } }
+  }
+  function detailSig() { return JSON.stringify([lang, deviceOf(state.selectedIp), sortedFindings(state.scan).filter((f) => f.ip === state.selectedIp)]); }
+  /* A language change re-renders everything that has text. */
+  function rerender() {
+    side.update(state.scan); applyGraph(); applyList(); refreshSelection();
+    if (state.panel === "detail") renderDetail(); else if (state.panel === "chat") renderChat();
+  }
+  return { root, update, rerender, onEscape, get selectedIp() { return state.selectedIp; }, get panel() { return state.panel; }, close: () => closePanel(false) };
 }
 
-function bindEvents() {
-  document.querySelectorAll('[data-action="import"]').forEach((button) => button.addEventListener("click", () => {
-    state.view = "import"; render(); $("btn-import").focus();
-  }));
-  ["cmp-before", "cmp-after"].forEach((id) => $(id).addEventListener("change", updateComparison));
-  $("lang-ro").addEventListener("click", () => setLanguage("ro"));
-  $("lang-en").addEventListener("click", () => setLanguage("en"));
-  document.querySelectorAll(".nav-btn").forEach((button) => button.addEventListener("click", () => { state.view = button.dataset.view; render(); }));
-  $("scan-select").addEventListener("change", async (event) => {
-    state.chatRequest = (state.chatRequest || 0) + 1;
-    state.chatMessages = []; state.panel = "list"; state.selectedIp = null;
-    state.currentScanId = Number(event.target.value);
-    const scanId = state.currentScanId;
+/* ================= pages ================= */
+function pageHeader(page, titleKey, titleId) {
+  const head = el("header", "page-head");
+  const left = el("div"); const h1 = el("h1"); h1.id = titleId; h1.tabIndex = -1; h1.dataset.titleKey = titleKey; h1.textContent = text(titleKey);
+  const sub = el("p", "page-sub"); left.append(h1, sub);
+  const actions = el("div", "actions");
+  head.append(left, actions); page.append(head);
+  return { head, h1, sub, actions };
+}
+function errorNotice(titleKey, stepsKey, detail) {
+  const box = el("div", "notice bad"); box.setAttribute("role", "alert");
+  box.append(icon("i-alert"));
+  const body = el("div"); body.append(el("strong", "", text(titleKey)));
+  const steps = text(stepsKey);
+  if (Array.isArray(steps)) { const ol = el("ol", "steps"); for (const s of steps) ol.append(el("li", "", s)); body.append(ol); }
+  if (detail) body.append(el("p", "muted", text("errDetail", { detail })));
+  box.append(body);
+  return box;
+}
+
+/* ---- Home: live, independent of Import ---- */
+function createHomePage() {
+  const root = $("page-home");
+  const head = pageHeader(root, "homeTitle", "home-title");
+  const scanBtn = button(text("scanBtn"), "primary", "i-radar");
+  head.actions.append(scanBtn);
+  const status = el("div", "notice"); status.hidden = true; status.setAttribute("role", "status");
+  const errorBox = el("div"); errorBox.hidden = true;
+  const emptyBox = el("div", "card empty"); emptyBox.hidden = true;
+  const loadingBox = el("p", "muted", text("loading"));
+  const view = createNetworkView();
+  view.root.hidden = true;
+  root.append(errorBox, status, loadingBox, emptyBox, view.root);
+  const s = { scanId: null, scan: null, loaded: false, scanning: false, timer: null, polling: false, offline: false, started: 0 };
+
+  function paintStatic() {
+    head.h1.textContent = text("homeTitle");
+    setButtonLabel(scanBtn, s.scanning ? text("scanning") : s.scan ? text("scanAgain") : text("scanBtn"));
+    head.sub.textContent = s.scan && s.when ? text("lastScan", { when: fmtDate(s.when) }) : "";
+    loadingBox.textContent = text("loading");
+    if (emptyBox.__lang !== lang) {
+      emptyBox.__lang = lang;
+      emptyBox.replaceChildren(icon("i-network", "big"), el("h2", "", text("emptyTitle")), el("p", "muted", text("emptyText")));
+      const go = button(text("scanBtn"), "primary", "i-radar"); go.addEventListener("click", openScanSheet);
+      const imp = el("button", "link", text("orImport")); imp.type = "button"; imp.addEventListener("click", () => showPage("import", true));
+      emptyBox.append(go, imp);
+    }
+    if (s.scanning) paintStatus();
+  }
+  function paintState() {
+    loadingBox.hidden = s.loaded; emptyBox.hidden = !s.loaded || Boolean(s.scan); view.root.hidden = !s.scan;
+    scanBtn.disabled = s.scanning; paintStatic();
+  }
+  function paintStatus() {
+    status.hidden = !s.scanning && !s.offline;
+    status.replaceChildren();
+    if (s.scanning) {
+      status.append(el("span", "spinner"), el("div", "", ""));
+      status.lastChild.append(el("strong", "", text("scanning")), el("p", "muted", text("scanningNote") + " " + text("elapsed", { s: Math.floor((Date.now() - s.started) / 1000) })));
+    } else if (s.offline) { status.append(icon("i-alert"), el("span", "", text("offline"))); }
+  }
+
+  async function loadScan(id, announceNew) {
+    const r = await api("/api/scans/" + encodeURIComponent(id));
+    if (!r.ok || !r.data || r.data.status !== "ok") return false;
+    s.scanId = id; s.scan = r.data; s.when = s.whenById && s.whenById[id] || s.when;
+    view.update(r.data, id); paintState();
+    if (announceNew) announce(text("newScan", { score: r.data.network_score }));
+    return true;
+  }
+  async function poll() {
+    if (s.polling || s.scanning || document.hidden) return;
+    s.polling = true;
     try {
-      const response = await fetch("/api/scans/" + scanId);
-      if (!response.ok) throw new Error("scan");
-      const detail = await response.json();
-      state.scans = state.scans.map((scan) => scan.id === scanId ? { ...scan, ...detail } : scan);
-      if (state.currentScanId !== scanId) return;
-      render(); $("scan-select").focus();
+      const r = await api("/api/scans");
+      if (!r.ok || !Array.isArray(r.data)) throw new Error("list");
+      if (s.offline) { s.offline = false; paintStatus(); }
+      s.whenById = Object.fromEntries(r.data.map((x) => [x.id, x.scanned_at]));
+      const mine = r.data.filter((x) => x.status === "ok" && (HOME_SOURCE === null || x.source === HOME_SOURCE));
+      const newest = mine.length ? mine[mine.length - 1] : null;
+      if (!newest) { if (s.scan) { s.scan = null; s.scanId = null; view.update(null, null); } }
+      else if (newest.id !== s.scanId) { s.when = newest.scanned_at; await loadScan(newest.id, s.loaded && s.scanId !== null); }
+      s.loaded = true; paintState();
     } catch (error) {
-      announce(text("loadFailed"), "error");
+      if (!s.offline) { s.offline = true; paintStatus(); }
+      s.loaded = true; paintState();
+    } finally { s.polling = false; }
+  }
+
+  /* ---- scan flow ---- */
+  const dialog = $("dlg-scan");
+  function sheet(titleText, bodyNodes, actions) {
+    dialog.replaceChildren();
+    const h = el("h2", "", titleText); h.id = "dlg-scan-title";
+    const body = el("div", "body"); body.append(...bodyNodes);
+    const row = el("div", "row-actions"); row.append(...actions);
+    dialog.append(h, body, row);
+  }
+  async function openScanSheet() {
+    if (s.scanning) return;
+    const cancel = button(text("cancel"), "", null); cancel.addEventListener("click", () => dialog.close());
+    sheet(text("sheetScanTitle"), [el("p", "muted", text("checking"))], [cancel]);
+    if (!dialog.open) dialog.showModal();
+    let network, preview;
+    try { [network, preview] = await Promise.all([api("/api/network"), api("/api/scan/preview")]); }
+    catch (error) { showScanError({ kind: "network" }, cancel, true); return; }
+    if (!network.ok) { showScanError({ status: network.status, code: "network_detection_failed", detail: (network.data && network.data.detail) || null }, cancel, true); return; }
+    const info = network.data, pv = preview.ok ? preview.data : null;
+    const problems = [];
+    if (pv && !pv.nmap) problems.push(text("noNmap"));
+    if (pv && pv.problems) for (const p of pv.problems) if (!/nmap/i.test(p)) problems.push(p);
+    if (!pv || !pv.target || problems.length) {
+      const close = button(text("close"), "primary", null); close.addEventListener("click", () => dialog.close());
+      const notice = errorNotice("blockedTitle", "blockedSteps"); for (const p of problems) notice.lastChild.append(el("p", "muted", p));
+      sheet(text("sheetScanTitle"), [notice], [close]); return;
     }
+    const facts = el("dl", "netfacts");
+    for (const [k, v] of [[text("netName"), info.interface], [text("netSubnet"), pv.target], [text("netGateway"), info.gateway]]) facts.append(el("dt", "", k), el("dd", "", v));
+    const ok = button(text("confirmScan"), "primary", "i-radar");
+    ok.addEventListener("click", () => { dialog.close(); runScan(pv.target); });
+    sheet(text("sheetScanTitle"), [el("p", "", text("sheetScanText")), facts, el("p", "muted", text("netPorts", { tcp: pv.tcp_ports, udp: pv.udp_ports.length }))], [cancel, ok]);
+    ok.focus();
+  }
+  function showScanError(problem, cancel, inSheet) {
+    const notice = scanErrorNotice(problem);
+    if (inSheet) { const close = button(text("close"), "primary", null); close.addEventListener("click", () => dialog.close()); sheet(text("sheetScanTitle"), [notice], [close]); }
+  }
+  function scanErrorNotice(p) {
+    const detail = p.detail && typeof p.detail === "object" ? localized(p.detail) : p.detail;
+    if (p.kind === "network") return errorNotice("errServer", "errServerSteps");
+    if (p.status === 403) return errorNotice("errPermission", "errPermissionSteps", detail);
+    if (p.status === 409 && p.code === "network_detection_failed") return errorNotice("errNetwork", "errNetworkSteps", detail);
+    if (p.status === 409) return errorNotice("errBusy", "errBusySteps");
+    if (p.status === 502) return errorNotice("errScanFailed", "errScanFailedSteps", detail);
+    if (p.status === 500) return errorNotice("errOperation", "errOperationSteps");
+    return errorNotice("errOperation", "errOperationSteps", detail);
+  }
+  async function runScan(target) {
+    s.scanning = true; s.started = Date.now(); errorBox.hidden = true; errorBox.replaceChildren();
+    paintState(); paintStatus(); announce(text("scanning"));
+    s.timer = setInterval(paintStatus, 1000);
+    try {
+      const r = await api("/api/scan", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ target, confirm: true }) });
+      if (!r.ok) {
+        const body = r.data || {}, err = body.error || {};
+        showError({ status: r.status, code: err.code, detail: err.message ? err.message : (typeof body.detail === "string" ? body.detail : null) });
+      } else {
+        s.when = new Date().toISOString();
+        const loaded = await loadScan(r.data.scan_id, false);
+        if (loaded) announce(text("scanDone", { score: s.scan.network_score }));
+      }
+    } catch (error) { showError({ kind: "network" }); }
+    finally { clearInterval(s.timer); s.scanning = false; paintState(); paintStatus(); }
+  }
+  function showError(problem) { errorBox.replaceChildren(scanErrorNotice(problem)); errorBox.hidden = false; }
+
+  scanBtn.addEventListener("click", openScanSheet);
+  return {
+    root, titleEl: head.h1,
+    activate() { poll(); },
+    poll, rerender() { paintState(); view.rerender(); },
+    reset() { s.scan = null; s.scanId = null; s.loaded = true; view.update(null, null); paintState(); },
+    onEscape: () => view.onEscape(), init() { paintState(); poll(); },
+  };
+}
+
+/* ---- History: live scans only ---- */
+function createHistoryPage() {
+  const root = $("page-history");
+  const head = pageHeader(root, "histTitle", "history-title");
+  const exportBtn = button(text("exportBtn"), "", "i-share"); const clearBtn = button(text("clearHistory"), "danger", "i-trash");
+  head.actions.append(exportBtn, clearBtn);
+  const body = el("div"); body.style.display = "contents";
+  root.append(body);
+  const s = { scans: [], selectedId: null, detail: null, detailCache: new Map(), loaded: false, cmpBefore: null, cmpAfter: null };
+  const side = createSidePanel();
+  const menuBefore = createMenu("compareBefore", (v) => { s.cmpBefore = Number(v); compare(); });
+  const menuAfter = createMenu("compareAfter", (v) => { s.cmpAfter = Number(v); compare(); });
+  const cmpBox = el("div", "cmp"); cmpBox.setAttribute("aria-live", "polite");
+  let chartCard, listCard, compareCard, histGrid, histMain, histSide, emptyCard;
+
+  function validScans() { return s.scans.filter((x) => x.status === "ok"); }
+  function buildLayout() {
+    histGrid = el("div", "hist"); histMain = el("div", "hist-main"); histSide = el("div", "hist-side"); histSide.append(side.root);
+    chartCard = el("section", "card"); listCard = el("section", "card"); compareCard = el("section", "card");
+    compareCard.append(el("h2", "card-title"), (() => { const p = el("div", "pickers"); p.append(menuBefore.root, menuAfter.root); return p; })(), cmpBox);
+    histMain.append(chartCard, listCard, compareCard); histGrid.append(histMain, histSide);
+    emptyCard = el("div", "card empty");
+    body.replaceChildren(emptyCard, histGrid);
+  }
+  buildLayout();
+
+  function smoothPath(points) {
+    if (points.length < 2) return "";
+    let d = "M" + points[0].x + " " + points[0].y;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i], p1 = points[i], p2 = points[i + 1], p3 = points[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6, c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += " C" + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + p2.x + " " + p2.y;
+    }
+    return d;
+  }
+  function paintChart() {
+    chartCard.replaceChildren(el("h2", "card-title", text("chartTitle")));
+    const valid = validScans().slice(-20);
+    if (valid.length < 2) { chartCard.append(el("p", "muted", text("chartNeedMore"))); chartCard.lastChild.style.marginTop = "12px"; return; }
+    const W = 640, H = 220, left = 44, right = 20, top = 28, bottom = 24;
+    const x = (i) => Math.round(left + ((W - left - right) * i) / (valid.length - 1));
+    const y = (score) => Math.round(top + ((100 - score) * (H - top - bottom)) / 100);
+    const svg = svgEl("svg"); svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", text("chartAria", { n: valid.length, first: valid[0].network_score, last: valid[valid.length - 1].network_score }));
+    for (const g of [0, 50, 100]) {
+      const line = svgEl("line", "chart-grid"); line.setAttribute("x1", String(left)); line.setAttribute("x2", String(W - right)); line.setAttribute("y1", String(y(g))); line.setAttribute("y2", String(y(g)));
+      const lab = svgEl("text", "chart-lab"); lab.setAttribute("x", String(left - 10)); lab.setAttribute("y", String(y(g) + 5)); lab.textContent = String(g);
+      svg.append(line, lab);
+    }
+    const pts = valid.map((scan, i) => ({ x: x(i), y: y(scan.network_score) }));
+    const path = svgEl("path", "chart-line"); path.setAttribute("d", smoothPath(pts)); svg.append(path);
+    valid.forEach((scan, i) => {
+      const c = svgEl("circle", "chart-pt"); c.setAttribute("cx", String(pts[i].x)); c.setAttribute("cy", String(pts[i].y)); c.setAttribute("r", "7");
+      const title = svgEl("title"); title.textContent = text("pointAria", { when: fmtDate(scan.scanned_at), score: scan.network_score }); c.append(title);
+      const v = svgEl("text", "chart-val"); v.setAttribute("x", String(pts[i].x)); v.setAttribute("y", String(pts[i].y - 14)); v.textContent = String(scan.network_score);
+      svg.append(c, v);
+    });
+    const wrap = el("div", "chart-wrap"); wrap.append(svg); chartCard.append(wrap);
+  }
+  function paintList() {
+    listCard.replaceChildren(el("h2", "card-title", text("scansTitle")));
+    const ul = el("ul", "scan-list");
+    for (const scan of s.scans.slice().reverse()) {
+      const li = el("li"); const b = el("button", "scan-row"); b.type = "button"; b.setAttribute("aria-pressed", String(scan.id === s.selectedId));
+      b.append(el("span", "when", fmtDate(scan.scanned_at)), el("span", "sc", scan.status === "ok" ? text("scanRowScore", { score: scan.network_score }) : text("scanError")));
+      b.disabled = scan.status !== "ok";
+      b.addEventListener("click", () => select(scan.id));
+      li.append(b); ul.append(li);
+    }
+    listCard.append(ul);
+  }
+  function paintCompare() {
+    compareCard.firstChild.textContent = text("compareTitle");
+    menuBefore.setLabel(); menuAfter.setLabel();
+    const valid = validScans();
+    const items = valid.map((x) => ({ value: x.id, label: fmtDate(x.scanned_at) + " · " + text("scanRowScore", { score: x.network_score }) }));
+    if (valid.length >= 2) {
+      if (!valid.some((x) => x.id === s.cmpBefore)) s.cmpBefore = valid[valid.length - 2].id;
+      if (!valid.some((x) => x.id === s.cmpAfter)) s.cmpAfter = valid[valid.length - 1].id;
+    }
+    menuBefore.setItems(items, s.cmpBefore); menuAfter.setItems(items, s.cmpAfter);
+    compare();
+  }
+  let compareToken = 0;
+  async function compare() {
+    const token = ++compareToken;
+    cmpBox.replaceChildren();
+    if (validScans().length < 2) { cmpBox.append(el("p", "muted", text("compareNeed"))); return; }
+    if (s.cmpBefore === s.cmpAfter) { cmpBox.append(el("p", "muted", text("compareSame"))); return; }
+    let r;
+    try { r = await api("/api/compare?a=" + s.cmpBefore + "&b=" + s.cmpAfter); } catch (error) { r = { ok: false }; }
+    if (token !== compareToken) return;
+    if (!r.ok) { cmpBox.append(el("p", "muted", text("compareFailed"))); return; }
+    const d = r.data;
+    cmpBox.append(el("p", "big", text("scoreChange", { a: d.score_before, b: d.score_after })));
+    const sections = [
+      ["resolvedTitle", d.resolved_findings.map((f) => findingLine(f))], ["newFindingsTitle", d.new_findings.map((f) => findingLine(f))],
+      ["newDevices", d.new_devices], ["removedDevices", d.removed_devices],
+      ["openedPorts", d.opened_ports.map((p) => p.ip + ":" + p.port + "/" + p.protocol)], ["closedPorts", d.closed_ports.map((p) => p.ip + ":" + p.port + "/" + p.protocol)],
+    ];
+    for (const [key, values] of sections) {
+      cmpBox.append(el("h3", "", text(key)));
+      const ul = el("ul"); for (const v of values) ul.append(el("li", "", v)); if (!values.length) ul.append(el("li", "muted", text("none")));
+      cmpBox.append(ul);
+    }
+  }
+  const findingLine = (f) => f.code + " · " + whereOf(f);
+
+  async function select(id) {
+    s.selectedId = id;
+    const hadFocus = listCard.contains(document.activeElement);
+    paintList();
+    if (hadFocus) { const pressed = listCard.querySelector('[aria-pressed="true"]'); if (pressed) pressed.focus(); }
+    if (!s.detailCache.has(id)) {
+      const r = await api("/api/scans/" + id);
+      if (r.ok) s.detailCache.set(id, r.data);
+    }
+    if (s.selectedId === id) side.update(s.detailCache.get(id) || null);
+  }
+  async function refresh() {
+    let r;
+    try { r = await api("/api/scans"); } catch (error) { r = { ok: false }; }
+    if (!r.ok || !Array.isArray(r.data)) return;
+    s.scans = r.data.filter((x) => HOME_SOURCE === null || x.source === HOME_SOURCE);
+    s.loaded = true; paintAll();
+    const valid = validScans();
+    if (valid.length && !valid.some((x) => x.id === s.selectedId)) await select(valid[valid.length - 1].id);
+  }
+  function paintAll() {
+    head.h1.textContent = text("histTitle");
+    setButtonLabel(exportBtn, text("exportBtn")); setButtonLabel(clearBtn, text("clearHistory"));
+    const has = s.scans.length > 0;
+    emptyCard.hidden = has; histGrid.hidden = !has; exportBtn.hidden = clearBtn.hidden = !has;
+    emptyCard.replaceChildren(icon("i-clock", "big"), el("h2", "", text("histEmptyTitle")), el("p", "muted", text("histEmptyText")));
+    if (!has) return;
+    paintChart(); paintList(); paintCompare();
+    side.update(s.detailCache.get(s.selectedId) || null);
+  }
+
+  exportBtn.addEventListener("click", () => {
+    const valid = validScans();
+    if (!valid.length) return;
+    let url = "/api/report?lang=" + lang;
+    if (s.cmpBefore && s.cmpAfter && s.cmpBefore !== s.cmpAfter && valid.length >= 2) url += "&a=" + s.cmpBefore + "&b=" + s.cmpAfter;
+    else url += "&a=" + (s.selectedId || valid[valid.length - 1].id);
+    window.open(url, "_blank", "noopener");
   });
-  $("btn-import").addEventListener("click", () => $("file-input").click());
-  $("file-input").addEventListener("change", (event) => importFile(event.target.files[0]));
-  const drop = $("drop-zone");
-  ["dragenter", "dragover"].forEach((eventName) => drop.addEventListener(eventName, (event) => { event.preventDefault(); drop.classList.add("dragging"); }));
-  ["dragleave", "drop"].forEach((eventName) => drop.addEventListener(eventName, (event) => { event.preventDefault(); drop.classList.remove("dragging"); }));
-  drop.addEventListener("drop", (event) => importFile(event.dataTransfer.files[0]));
-  $("btn-clear").addEventListener("click", () => $("confirm-dialog").showModal());
-  $("confirm-cancel").addEventListener("click", () => $("confirm-dialog").close());
-  $("confirm-delete").addEventListener("click", async () => {
-    const response = await fetch("/api/history", { method: "DELETE" });
-    if (!response.ok) { announce(text("deleteFailed", "Could not clear history."), "error"); return; }
-    $("confirm-dialog").close(); state.scans = []; state.currentScanId = null; announce(text("deleted", "History was cleared.")); render();
+  /* clear history sheet */
+  const dialog = $("dlg-clear");
+  clearBtn.addEventListener("click", () => {
+    dialog.replaceChildren();
+    const h = el("h2", "", text("clearTitle")); h.id = "dlg-clear-title";
+    const err = el("p", "notice bad"); err.setAttribute("role", "alert"); err.hidden = true;
+    const body = el("div", "body"); body.append(el("p", "", text("clearText")), err);
+    const cancel = button(text("cancel"), "", null); cancel.addEventListener("click", () => dialog.close());
+    const confirm = button(text("clearConfirm"), "danger", "i-trash");
+    confirm.addEventListener("click", async () => {
+      confirm.disabled = true;
+      let r; try { r = await api("/api/history", { method: "DELETE" }); } catch (error) { r = { ok: false }; }
+      if (!r.ok) { err.hidden = false; err.textContent = text("clearFailed"); confirm.disabled = false; return; }
+      dialog.close(); document.dispatchEvent(new CustomEvent("netcheck:cleared")); announce(text("cleared"));
+    });
+    const row = el("div", "row-actions"); row.append(cancel, confirm);
+    dialog.append(h, body, row);
+    dialog.showModal(); cancel.focus();
   });
-  $("btn-export").addEventListener("click", () => {
-    const scan = currentScan();
-    if (scan) window.open("/api/report?a=" + encodeURIComponent(scan.id) + "&lang=" + state.lang, "_blank", "noopener");
-    else announce(text("historyEmptyText", "History is empty."));
+  return {
+    root, titleEl: head.h1,
+    activate() { refresh(); }, rerender() { if (s.loaded) paintAll(); else head.h1.textContent = text("histTitle"); },
+    reset() { s.scans = []; s.detailCache.clear(); s.selectedId = null; paintAll(); },
+    onEscape: () => false, init() { paintAll(); },
+  };
+}
+
+/* ---- Import: a batch of files, static, no history ---- */
+function createImportPage() {
+  const root = $("page-import");
+  const head = pageHeader(root, "importTitle", "import-title");
+  const againBtn = button(text("importAgain"), "", "i-upload");
+  const backBtn = button(text("backToFiles"), "", "i-back");
+  head.actions.append(backBtn, againBtn);
+  const input = el("input"); input.type = "file"; input.accept = ".xml,application/xml,text/xml"; input.multiple = true; input.hidden = true;
+  const drop = el("div", "drop"); const results = el("div", "results"); results.setAttribute("aria-live", "polite");
+  const list = el("ul", "file-list"); list.setAttribute("aria-label", text("importTitle"));
+  const staticNote = el("p", "notice"); staticNote.hidden = true;
+  const view = createNetworkView(); view.root.hidden = true;
+  root.append(input, results, drop, list, staticNote, view.root);
+  const s = { items: [], current: -1, mode: "list", errors: [], busy: "", timer: 0 };
+
+  function clearErrors() { clearTimeout(s.timer); s.errors = []; paint(); }
+  function paint() {
+    head.h1.textContent = text("importTitle");
+    setButtonLabel(againBtn, text("importAgain")); setButtonLabel(backBtn, text("backToFiles"));
+    const detail = s.mode === "detail" && s.items[s.current];
+    const item = s.items[s.current];
+    head.sub.textContent = detail ? text("importedHeader", { name: item.name, date: fmtDate(item.date) }) : "";
+    const empty = !s.items.length;
+    drop.hidden = !empty; list.hidden = empty || Boolean(detail); view.root.hidden = !detail; staticNote.hidden = !detail;
+    againBtn.hidden = empty || Boolean(detail); backBtn.hidden = !detail;
+    drop.replaceChildren(icon("i-upload", "big"), el("h2", "", text("dropTitle")), el("p", "muted", text("dropNote")));
+    const choose = button(text("chooseFiles"), "primary", "i-file"); choose.addEventListener("click", () => input.click()); drop.append(choose);
+    drop.append(el("p", "muted", text("importPrivacy")));
+    staticNote.replaceChildren(icon("i-sev-info"), el("span", "", text("importStatic")));
+    list.replaceChildren(...s.items.map((it, i) => {
+      const li = el("li"); const card = el("button", "file-card"); card.type = "button"; card.dataset.index = String(i);
+      const score = it.scan && it.scan.network_score;
+      card.append(icon("i-file"), el("span", "file-name", it.name), el("span", "file-score", text("fileScore", { n: score })), icon("i-chevron"));
+      card.addEventListener("click", () => showItem(i));
+      li.append(card); return li;
+    }));
+    results.replaceChildren();
+    if (s.busy) { const n = el("div", "notice"); n.append(el("span", "spinner"), el("span", "", s.busy)); results.append(n); }
+    for (const e of s.errors) {
+      const n = el("div", "notice bad"); n.setAttribute("role", "alert");
+      const x = button("", "icon-only", "i-close"); x.setAttribute("aria-label", text("dismiss")); x.addEventListener("click", clearErrors);
+      n.append(icon("i-alert"), el("span", "grow", text(e.key, { name: e.name })), x); results.append(n);
+    }
+  }
+  function showItem(index) {
+    s.current = index; s.mode = "detail"; const item = s.items[index];
+    view.update(item.scan, item.id); paint(); head.h1.focus({ preventScroll: true });
+  }
+  function backToList() {
+    s.mode = "list"; paint();
+    const card = list.querySelector('[data-index="' + s.current + '"]'); if (card) card.focus({ preventScroll: true });
+  }
+  async function processFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length || s.busy) return;
+    clearTimeout(s.timer); s.errors = []; const added = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      s.busy = text("importProgress", { n: i + 1, total: files.length }); paint(); announce(s.busy);
+      if (!/\.xml$/i.test(file.name)) { s.errors.push({ key: "badType", name: file.name }); continue; }
+      if (file.size > MAX_IMPORT_BYTES) { s.errors.push({ key: "tooBig", name: file.name }); continue; }
+      try {
+        const r = await api("/api/import?filename=" + encodeURIComponent(file.name), { method: "POST", headers: { "Content-Type": "application/xml" }, body: await file.text() });
+        if (!r.ok || !r.data) { s.errors.push({ key: "importFailed", name: file.name }); continue; }
+        if (r.data.status !== "ok") { s.errors.push({ key: "brokenFile", name: file.name }); continue; }
+        added.push({ id: r.data.scan_id, name: file.name, date: new Date().toISOString(), scan: r.data });
+      } catch (error) { s.errors.push({ key: "importFailed", name: file.name }); }
+    }
+    s.busy = ""; s.items.push(...added); s.mode = "list"; paint();
+    if (s.errors.length) s.timer = setTimeout(clearErrors, ERROR_MS);
+    input.value = "";
+    announce(text("importResult", { ok: added.length, bad: s.errors.length }));
+  }
+  againBtn.addEventListener("click", () => input.click());
+  backBtn.addEventListener("click", backToList);
+  input.addEventListener("change", () => processFiles(input.files));
+  ["dragenter", "dragover"].forEach((name) => drop.addEventListener(name, (event) => { event.preventDefault(); drop.classList.add("dragging"); }));
+  ["dragleave", "drop"].forEach((name) => drop.addEventListener(name, (event) => { event.preventDefault(); drop.classList.remove("dragging"); }));
+  drop.addEventListener("drop", (event) => processFiles(event.dataTransfer && event.dataTransfer.files));
+  return {
+    root, titleEl: head.h1,
+    activate() {}, rerender() { paint(); if (s.mode === "detail") view.rerender(); },
+    reset() { clearTimeout(s.timer); s.items = []; s.current = -1; s.mode = "list"; s.errors = []; view.update(null, null); paint(); },
+    onEscape() { if (view.onEscape()) return true; if (s.mode === "detail") { backToList(); return true; } return false; },
+    init() { paint(); },
+  };
+}
+
+/* ================= boot ================= */
+const pages = {};
+let currentPage = null;
+function applyStaticText() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = text(node.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((node) => node.setAttribute("aria-label", text(node.dataset.i18nAria)));
+  for (const b of document.querySelectorAll(".lang-opt")) b.setAttribute("aria-checked", String(b.dataset.lang === lang));
+}
+function showPage(id, focusTitle) {
+  if (!pages[id]) id = "home";
+  currentPage = id;
+  for (const key of Object.keys(pages)) pages[key].root.hidden = key !== id;
+  for (const b of document.querySelectorAll(".nav-item")) { if (b.dataset.page === id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); }
+  try { history.replaceState(null, "", "#" + id); } catch (error) { /* file:// or sandbox */ }
+  pages[id].activate();
+  if (focusTitle) pages[id].titleEl.focus({ preventScroll: true });
+}
+function setLanguage(next) {
+  lang = next === "en" ? "en" : "ro";
+  try { localStorage.setItem("netcheck-language", lang); } catch (error) { /* storage is optional */ }
+  applyStaticText();
+  for (const key of Object.keys(pages)) pages[key].rerender();
+}
+function loadLanguage() {
+  const fromUrl = new URLSearchParams(location.search).get("lang");
+  if (fromUrl === "ro" || fromUrl === "en") { lang = fromUrl; return; }
+  try { const saved = localStorage.getItem("netcheck-language"); if (saved === "ro" || saved === "en") lang = saved; } catch (error) { /* ignore */ }
+}
+function boot() {
+  loadLanguage();
+  pages.home = createHomePage(); pages.history = createHistoryPage(); pages.import = createImportPage();
+  applyStaticText();
+  for (const key of Object.keys(pages)) pages[key].init();
+  for (const b of document.querySelectorAll(".nav-item")) b.addEventListener("click", () => showPage(b.dataset.page, true));
+  for (const b of document.querySelectorAll(".lang-opt")) b.addEventListener("click", () => setLanguage(b.dataset.lang));
+  $("lang-ro").parentElement.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); setLanguage("en"); $("lang-en").focus(); }
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); setLanguage("ro"); $("lang-ro").focus(); }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !$("confirm-dialog").open && state.view === "home" && state.panel !== "list") {
-      event.preventDefault();
-      state.panel = state.panel === "chat" && state.selectedIp ? "detail" : "list"; render(); focusPanel();
-    }
+    if (event.key !== "Escape" || document.querySelector("dialog[open]") || !currentPage) return;
+    if (pages[currentPage].onEscape()) event.preventDefault();
   });
+  document.addEventListener("netcheck:cleared", () => { for (const key of Object.keys(pages)) pages[key].reset(); });
+  /* Live updates only while the browser tab is visible; resume immediately on return. */
+  setInterval(() => pages.home.poll(), POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pages.home.poll(); });
+  const initial = (location.hash || "#home").slice(1);
+  showPage(initial, false);
 }
-
-function openDevice(ip) {
-  state.chatRequest = (state.chatRequest || 0) + 1;
-  state.selectedIp = ip; state.panel = "detail"; state.chatMessages = []; render(); focusPanel();
-}
-
-loadLanguage();
-bindEvents();
-loadScans();
+boot();

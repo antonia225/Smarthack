@@ -116,14 +116,14 @@ def render_report(
 @page {{ size: A4; margin: 16mm; }}
 * {{ box-sizing: border-box; }}
 body {{ color: #17202e; font: 11pt/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; }}
-header {{ border-bottom: 3px solid #2456b8; margin-bottom: 18px; padding-bottom: 12px; }}
+header {{ border-bottom: 3px solid #1B3A78; margin-bottom: 18px; padding-bottom: 12px; }}
 h1 {{ font-size: 24pt; margin: 0 0 6px; }} h2 {{ border-bottom: 1px solid #d8dee8; font-size: 15pt; margin: 20px 0 10px; padding-bottom: 4px; }}
 h3 {{ font-size: 11.5pt; margin: 0 0 5px; }} h4 {{ margin: 10px 0 3px; }}
 .meta {{ color: #526174; }} .summary {{ display: flex; gap: 28px; margin: 14px 0; }}
-.summary strong {{ display: block; font-size: 18pt; color: #2456b8; }}
-.device, .finding {{ border: 1px solid #d8dee8; border-left: 4px solid #2456b8; border-radius: 6px; margin: 8px 0; padding: 10px 12px; page-break-inside: avoid; }}
+.summary strong {{ display: block; font-size: 18pt; color: #1B3A78; }}
+.device, .finding {{ border: 1px solid #d8dee8; border-left: 4px solid #1B3A78; border-radius: 6px; margin: 8px 0; padding: 10px 12px; page-break-inside: avoid; }}
 .finding strong {{ color: #a51d2d; text-transform: uppercase; }} ol {{ margin: 5px 0 0 20px; padding: 0; }}
-.toolbar {{ margin: 0 0 18px; }} button {{ background: #2456b8; border: 0; border-radius: 5px; color: #fff; padding: 8px 14px; }} 
+.toolbar {{ margin: 0 0 18px; }} button {{ background: #1B3A78; border: 0; border-radius: 5px; color: #fff; padding: 8px 14px; }} 
 @media print {{ .toolbar {{ display: none; }} }}
 </style>
 </head>

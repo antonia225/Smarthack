@@ -181,6 +181,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:  # legacy Windows consoles (cp1250) cannot print Romanian text
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError, ValueError):
+            pass
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

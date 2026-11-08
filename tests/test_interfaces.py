@@ -55,7 +55,7 @@ def invoke(env, target='172.20.10.3', confirm=True):
 
 @pytest.mark.parametrize('channel', ['cli', 'api'])
 @pytest.mark.parametrize('problem', ['confirmation', 'public', 'loopback', 'link_local',
-                                    'ipv6', 'outside', 'large', 'missing_config',
+                                    'ipv6', 'outside', 'large',
                                     'network_change', 'late_network_change', 'offline', 'hostname'])
 def test_refusal_never_starts_process(environment, channel, problem):
     config, output, detect, process, client = environment
@@ -65,7 +65,6 @@ def test_refusal_never_starts_process(environment, channel, problem):
                'hostname': 'example.com'}
     target = targets.get(problem, target)
     if problem == 'confirmation': confirm = False
-    if problem == 'missing_config': config.unlink()
     if problem == 'network_change': detect.return_value = VENUE
     if problem == 'late_network_change': detect.side_effect = [LAB, VENUE]
     if problem == 'offline': detect.side_effect = NetworkDetectionError('No LAN')
@@ -194,6 +193,39 @@ def test_busy_scan_reports_conflict(environment, channel):
             response = environment[-1].post('/api/scan', json={'target': '172.20.10.3', 'confirm': True})
             assert response.status_code == 409
     environment[3].assert_not_called()
+
+
+@pytest.mark.parametrize('target,ok', [('172.20.10.3', True), ('172.20.10.16/28', False),
+                                       ('8.8.8.8', False), ('192.168.1.5', False)])
+def test_without_saved_config_only_connected_subnet_is_allowed(environment, target, ok):
+    config, output, detect, process, client = environment
+    config.unlink()
+    response = client.post('/api/scan', json={'target': target, 'confirm': True})
+    assert response.status_code == (200 if ok else 403)
+    assert process.called is ok
+
+
+def test_api_scan_without_target_uses_connected_subnet(environment):
+    config, output, detect, process, client = environment
+    config.unlink()
+    seen = []
+    def lenient(command, **kwargs):
+        seen.append(command[-1] if command[0] == 'nmap' else command[3])
+        Path(command[command.index('-oX') + 1] if command[0] == 'nmap' else command[4]).write_text(
+            '<nmaprun><runstats><finished exit="success"/></runstats></nmaprun>')
+        return subprocess.CompletedProcess(command, 0, '', '')
+    process.side_effect = lenient
+    response = client.post('/api/scan', json={'confirm': True})
+    assert response.status_code == 200
+    assert seen == ['172.20.10.0/28']
+
+
+def test_scan_preview_never_scans(environment):
+    *_, process, client = environment
+    body = client.get('/api/scan/preview').json()
+    assert body['network']['subnet'] == '172.20.10.0/28'
+    assert body['udp_ports'] == [53, 123, 161, 1900, 5353]
+    process.assert_not_called()
 
 
 def test_api_cannot_bypass_missing_config_with_allowlist(environment):

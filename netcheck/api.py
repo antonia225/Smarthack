@@ -18,11 +18,12 @@ from netcheck.scoring import analyze_file
 from netcheck.catalog import CatalogError, attach_explanations
 from netcheck.learn_api import router as learn_router
 from netcheck.report import render_report
+from netcheck.nmap_ports import UDP_PORTS, port_specification
 
 
 class ScanRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    target: StrictStr
+    target: StrictStr | None = None
     confirm: StrictBool = False
 
 
@@ -87,6 +88,24 @@ def create_app(
         except scanner.NetworkDetectionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @application.get("/api/scan/preview")
+    def scan_preview() -> dict[str, Any]:
+        """What a live scan would do, without scanning (FR-01/02/04)."""
+        result: dict[str, Any] = {"network": None, "target": None, "nmap": False,
+                                  "tcp_ports": 0, "udp_ports": list(UDP_PORTS), "problems": []}
+        try:
+            result["network"] = asdict(scanner.detect_network())
+            result["target"] = scanner.default_scan_target(config_path)
+        except (scanner.NetworkDetectionError, PermissionError) as exc:
+            result["problems"].append(str(exc))
+        try:
+            spec = port_specification()
+            result["nmap"] = True
+            result["tcp_ports"] = len(spec.split(",U:")[0][2:].split(","))
+        except (OSError, ValueError) as exc:
+            result["problems"].append(str(exc))
+        return result
+
     @application.post("/api/import")
     async def import_scan(
         request: Request,
@@ -102,6 +121,7 @@ def create_app(
             path.write_bytes(content)
             analysis = analyze_file(path)
         analysis["file"] = display_name
+        analysis["source"] = "import"
         explained = attach_explanations(analysis, lang)
         scan_id = history.save_scan(analysis)
         return {"scan_id": scan_id, **explained}
@@ -151,8 +171,11 @@ def create_app(
         request: ScanRequest, lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any] | JSONResponse:
         try:
+            target = request.target
+            if target is None:
+                target = scanner.default_scan_target(config_path)
             result = service.scan(
-                request.target,
+                target,
                 confirm=request.confirm,
                 config_path=config_path,
                 output_dir=output_dir,
@@ -165,6 +188,7 @@ def create_app(
                     502,
                 )
             analysis = analyze_file(result.xml_path)
+            analysis["source"] = "live"
         except service.ScanBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except PermissionError as exc:

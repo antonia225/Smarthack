@@ -139,7 +139,7 @@ def test_missing_catalog_returns_bilingual_error(monkeypatch, tmp_path):
 @pytest.mark.parametrize("filename", ["V6b_after.xml", "V7_broken.xml"])
 def test_catalog_preserves_empty_and_invalid_analysis(filename):
     source = VALIDATION_DIR / filename
-    expected = analyze_file(source)
+    expected = {**analyze_file(source), "source": "import"}
     client = TestClient(api.app)
     response = client.post("/api/import", params={"filename": filename}, content=source.read_bytes())
     assert response.status_code == 200

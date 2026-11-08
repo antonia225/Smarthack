@@ -110,3 +110,27 @@ def test_command_errors(system, error):
         "netcheck.scanner.subprocess.run", side_effect=error
     ), pytest.raises(NetworkDetectionError):
         detect_network()
+
+
+def test_windows_ignores_docker_switch_and_link_local_adapters():
+    data = windows()
+    data["adapters"] += [
+        {"ifIndex": 20, "Name": "vEthernet (Default Switch)", "Status": "Up", "HardwareInterface": False},
+        {"ifIndex": 21, "Name": "Ethernet", "Status": "Up", "HardwareInterface": True},
+    ]
+    data["addresses"] += [
+        {"InterfaceIndex": 20, "IPAddress": "172.30.192.1", "PrefixLength": 20, "AddressState": 4},
+        {"InterfaceIndex": 21, "IPAddress": "169.254.248.61", "PrefixLength": 16, "AddressState": 4},
+    ]
+    data["routes"] += [
+        {"InterfaceIndex": 20, "DestinationPrefix": "172.30.192.0/20", "NextHop": "0.0.0.0"},
+        {"InterfaceIndex": 21, "DestinationPrefix": "169.254.0.0/16", "NextHop": "0.0.0.0"},
+    ]
+    assert run_fixture("Windows", data).subnet == "192.168.42.64/26"
+
+
+def test_windows_virtual_adapter_with_default_route_is_still_rejected():
+    data = windows()
+    data["adapters"][0]["HardwareInterface"] = False
+    with pytest.raises(NetworkDetectionError):
+        run_fixture("Windows", data)

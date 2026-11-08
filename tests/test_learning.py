@@ -3,10 +3,11 @@
 import pytest
 from pathlib import Path
 import sqlite3
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
-from netcheck import api, history
+from netcheck import api, history, scanner
 from netcheck.scoring import analyze_file
 
 
@@ -264,6 +265,16 @@ def test_on_topic_questions_are_answered(monkeypatch, tmp_path, question):
 
 def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
     client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    # Exercise real authorization against a deterministic LAN, not the CI host.
+    client = TestClient(api.create_app(
+        config_path=tmp_path / "missing-lab.json", output_dir=tmp_path / "scans",
+    ))
+    detect = Mock(return_value=scanner.NetworkInfo(
+        "lab0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1",
+    ))
+    run_scan = Mock(side_effect=AssertionError("proposal must never execute Nmap"))
+    monkeypatch.setattr(scanner, "detect_network", detect)
+    monkeypatch.setattr(scanner, "run_scan", run_scan)
 
     def unexpected_call(_):
         raise AssertionError("scan request must not call the AI provider")
@@ -279,10 +290,15 @@ def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
     result = response.json()
     assert result["action"] == {"action": "propose_scan", "target": "8.8.8.8"}
     assert "confirm" not in result["action"]
-    assert client.post("/api/scan", json={
+    detect.assert_not_called()
+    run_scan.assert_not_called()
+    refused = client.post("/api/scan", json={
         "target": result["action"]["target"],
         "confirm": True,
-    }).status_code == 403
+    })
+    assert refused.status_code == 403
+    assert refused.json()["error"]["code"] == "permission_denied"
+    run_scan.assert_not_called()
 
 
 def test_local_network_request_returns_a_local_network_proposal(monkeypatch, tmp_path):

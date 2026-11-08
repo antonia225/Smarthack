@@ -135,7 +135,8 @@ def create_app(
         analysis["file"] = display_name
         analysis["source"] = "import"
         explained = attach_explanations(analysis, lang)
-        scan_id = history.save_scan(analysis)
+        # A file that cannot be read is reported to the caller but not kept in history.
+        scan_id = history.save_scan(analysis) if analysis.get("status") == "ok" else None
         return {"scan_id": scan_id, **explained}
 
     @application.get("/api/scans")

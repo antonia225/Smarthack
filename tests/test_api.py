@@ -146,7 +146,10 @@ def test_catalog_preserves_empty_and_invalid_analysis(filename):
     result = response.json()
     scan_id = result.pop("scan_id")
     assert result == expected
-    assert client.get(f"/api/scans/{scan_id}").json() == expected
+    if expected["status"] == "ok":
+        assert client.get(f"/api/scans/{scan_id}").json() == expected
+    else:
+        assert scan_id is None and client.get("/api/scans").json() == []
 
 
 @pytest.mark.parametrize(('filename', 'display_name'), [

@@ -1,0 +1,5 @@
+file,ip,port,finding_code,severity
+docker.xml,172.20.10.2,5432,DB_EXPOSED,high
+docker.xml,172.20.10.2,,UNKNOWN_DEVICE,low
+http.xml,172.20.10.2,8080,HTTP_ADMIN_CLEARTEXT,medium
+http.xml,172.20.10.2,,UNKNOWN_DEVICE,low

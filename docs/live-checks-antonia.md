@@ -21,10 +21,10 @@ confirmare și refuză ținte publice, în afara allowlist-ului sau a LAN-ului.�
 ```sh
 python -m netcheck configure-lab --allow <SUBNET> --confirm
 python -m netcheck lab-run --label before <IP-SAU-CIDR> --confirm
-python scripts/lab-verify.sh
+sh scripts/lab-verify.sh
 # remediați serviciile pe gazdă
 python -m netcheck lab-run --label after <IP-SAU-CIDR> --confirm
-python scripts/lab-verify.sh
+sh scripts/lab-verify.sh
 ```
 
 Nu modificați XML-urile și nu declarați scorul înaintea motorului oficial.
@@ -45,4 +45,4 @@ Pe Windows:
 
 Rezultatul așteptat este cod 0 fără raportări; gitleaks se instalează separat.
 Pentru juriu: „Verific working tree-ul și istoricul, iar CI repetă verificarea
-pe push și PR.”
+la fiecare PR și la rulare manuală (workflow_dispatch), nu la push.”

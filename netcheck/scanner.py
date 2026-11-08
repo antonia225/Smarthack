@@ -150,13 +150,19 @@ def _detect_macos() -> NetworkInfo:
         destination, gateway, flags, interface = columns[:4]
         if re.fullmatch(r"lo\d+", interface):
             continue
-        if "U" not in flags or "R" in flags or "B" in flags:
-            raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
         if interface != name:
             raise NetworkDetectionError(
                 f"Rută IPv4 pe altă interfață ({interface}); posibil VPN sau rețea ambiguă."
             )
-        if destination == "default" and "U" in flags and "G" in flags:
+        # macOS lists ordinary on-link, broadcast and link-local routes beside
+        # the default route. Their R/B flags do not invalidate the LAN gateway.
+        if destination != "default":
+            if "G" in flags and ("U" not in flags or "R" in flags or "B" in flags):
+                raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
+            continue
+        if "U" not in flags or "R" in flags or "B" in flags:
+            raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
+        if "G" in flags:
             defaults.add(gateway)
     if len(defaults) != 1:
         raise NetworkDetectionError("Gateway IPv4 absent sau ambiguu; verificați conexiunea LAN.")

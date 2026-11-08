@@ -80,6 +80,17 @@ def test_macos_local_host_route_and_inactive_interface_are_excluded():
     assert result.interface == "en0"
 
 
+def test_macos_normal_local_routes_do_not_invalidate_default_gateway():
+    result = detect_with(
+        interface(),
+        "default 172.20.10.1 UGScg en0\n"
+        "172.20.10/28 link#11 UCS en0\n"
+        "172.20.10.0 ff:ff:ff:ff:ff:ff UHLWbI en0\n"
+        "169.254.169.254 link#11 UHRLSW en0\n",
+    )
+    assert result.gateway == "172.20.10.1"
+
+
 def test_unsupported_platform():
     from netcheck.scanner import NetworkDetectionError
     with patch("netcheck.scanner.platform.system", return_value="FreeBSD"), patch("netcheck.scanner.subprocess.run") as run:

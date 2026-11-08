@@ -227,3 +227,14 @@ def test_import_list_cards_detail_back_and_error_autodismiss(browser, server):
     assert not page.is_visible("#page-import .btn >> text=Importă alte fișiere")
     page.keyboard.press("Escape")
     assert page.is_visible("#page-import .file-card")
+
+
+def test_map_controls_are_44px_and_language_switch_drops_stale_announcement(browser, server):
+    page = _page(browser, server)
+    for selector in ["#page-home .nv-graf-head .view-opt", "#page-home .map-tools .map-control"]:
+        for box in page.locator(selector).evaluate_all("els => els.map(e => e.getBoundingClientRect().height)"):
+            assert box >= 44
+    page.evaluate("document.getElementById('announcer').textContent = 'mesaj vechi'")
+    page.click("#lang-en")
+    assert page.inner_text("#announcer") == ""
+    page.click("#lang-ro")

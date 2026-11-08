@@ -2068,7 +2068,7 @@ dialog.sheet .row-actions {
 .view-opt { padding: 4px 8px; gap: 5px; font-weight: 500; border-radius: 8px; }
 .view-opt svg { width: 18px; height: 18px; }
 .map-tools { display: flex; align-items: center; border: 1px solid var(--track); border-radius: 10px; background: var(--surf); }
-.map-control { border: 0; background: transparent; padding: 4px 8px; min-width: 36px; min-height: 36px; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.map-control { border: 0; background: transparent; padding: 4px 8px; min-width: 44px; min-height: 44px; font-size: 1rem; font-variant-numeric: tabular-nums; }
 .map-control:hover { background: var(--tint); }
 .graph { overflow: hidden; cursor: grab; }
 .graph.dragging { cursor: grabbing; }
@@ -2136,7 +2136,7 @@ dialog.sheet .row-actions {
 
 .nv-graf-head { justify-content: space-between; align-items: center; }
 .nv-graf-head .view-picker { margin-left: auto; flex: none; }
-.nv-graf-head .view-opt { min-height: 32px; padding: 3px 7px; gap: 4px; font-size: 1rem; }
+.nv-graf-head .view-opt { min-height: 44px; padding: 3px 7px; gap: 4px; font-size: 1rem; }
 .nv-graf-head .view-opt svg { width: 16px; height: 16px; }
 @media (pointer: coarse) {
   .nv-graf-head .view-opt { min-height: 44px; }

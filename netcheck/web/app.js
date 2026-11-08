@@ -75,12 +75,16 @@ function maskMac(value) { // defensive: the API already masks; never show more t
   if (value.includes("*")) return value;
   return value.split(":").slice(0, 3).join(":") + ":**:**:**";
 }
+let announceTimer = 0;
 function announce(message) {
   const box = $("announcer");
   if (!box) return;
   box.textContent = "";
-  setTimeout(() => { box.textContent = message; }, 50);
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => { box.textContent = message; }, 50);
 }
+/* Drop a stale live-region message (e.g. "Scanning…" after a refusal, or a message in the previous language). */
+function clearAnnouncement() { clearTimeout(announceTimer); const box = $("announcer"); if (box) box.textContent = ""; }
 function highestSeverity(scan, ip) {
   let best = null;
   for (const f of (scan && scan.findings) || []) if (f.ip === ip && (best === null || sevRank(f.severity) > sevRank(best))) best = f.severity;
@@ -892,7 +896,7 @@ function createHomePage() {
     } catch (error) { showError({ kind: "network" }); }
     finally { clearInterval(s.timer); s.scanning = false; paintState(); paintStatus(); }
   }
-  function showError(problem) { errorBox.replaceChildren(scanErrorNotice(problem)); errorBox.hidden = false; }
+  function showError(problem) { clearAnnouncement(); errorBox.replaceChildren(scanErrorNotice(problem)); errorBox.hidden = false; }
 
   scanBtn.addEventListener("click", openScanSheet);
   return {
@@ -1198,6 +1202,7 @@ function showPage(id, focusTitle) {
 function setLanguage(next) {
   lang = next === "en" ? "en" : "ro";
   try { localStorage.setItem("netcheck-language", lang); } catch (error) { /* storage is optional */ }
+  clearAnnouncement();
   applyStaticText();
   for (const key of Object.keys(pages)) pages[key].rerender();
 }

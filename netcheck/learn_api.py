@@ -13,6 +13,7 @@ from netcheck.catalog import attach_explanations
 from .learn import agent, fallback
 from .learn.evidence import build_evidence
 from .learn.retriever import search, source_dict
+from .learn.topic import REFUSAL, is_on_topic
 from .learn.validator import validate
 
 
@@ -54,6 +55,12 @@ def ask(request: AskRequest) -> dict[str, Any]:
     ):
         raise HTTPException(status_code=404, detail="Device not found in scan.")
 
+    if not is_on_topic(request.question, analysis, has_device=bool(request.device_ip)):
+        return {
+            "answer": REFUSAL[request.lang],
+            "sources": [],
+            "mode": "refused",
+        }
     evidence = build_evidence(analysis, request.device_ip, lang=request.lang)
     passages = search(request.question, lang=request.lang)
     evidence_text = "\n".join(f"[{item['id']}] {item['text']}" for item in evidence)

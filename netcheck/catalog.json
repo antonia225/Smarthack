@@ -7,17 +7,17 @@
       "en": "Control through Telnet"
     },
     "explain": {
-      "ro": "Dispozitivul acceptă Telnet, o metodă de control de la distanță care nu ascunde datele trimise. Parolele trimise astfel pot fi citite pe traseu.",
-      "en": "The device accepts Telnet, a way to control it remotely that does not hide transmitted data. Passwords sent this way may be read along the way."
+      "ro": "Telnet permite controlul dispozitivului de pe alt calculator. Datele trimise astfel, inclusiv parolele, pot fi citite pe drum.",
+      "en": "Telnet lets another computer control this device. Data sent this way, including passwords, may be read along the way."
     },
     "fix": {
       "ro": [
         "Dezactivează Telnet în setările dispozitivului.",
-        "Cere furnizorului IT o metodă de acces care protejează datele."
+        "Cere unui specialist o metodă de acces care protejează datele."
       ],
       "en": [
         "Turn off Telnet in the device settings.",
-        "Ask your IT provider for an access method that protects data."
+        "Ask a specialist for an access method that protects data."
       ]
     }
   },
@@ -35,11 +35,11 @@
     "fix": {
       "ro": [
         "Dezactivează accesul la ecran de la distanță dacă nu îl folosești.",
-        "Cere furnizorului IT să limiteze accesul la persoanele și dispozitivele aprobate."
+        "Cere unui specialist să limiteze accesul la persoanele și dispozitivele aprobate."
       ],
       "en": [
         "Turn off remote screen access if you do not use it.",
-        "Ask your IT provider to limit access to approved people and devices."
+        "Ask a specialist to limit access to approved people and devices."
       ]
     }
   },
@@ -57,11 +57,11 @@
     "fix": {
       "ro": [
         "Oprește VNC dacă nu îl folosești.",
-        "Cere furnizorului IT să permită accesul doar persoanelor și dispozitivelor aprobate."
+        "Cere unui specialist să permită accesul doar persoanelor și dispozitivelor aprobate."
       ],
       "en": [
         "Turn off VNC if you do not use it.",
-        "Ask your IT provider to allow access only to approved people and devices."
+        "Ask a specialist to allow access only to approved people and devices."
       ]
     }
   },
@@ -73,16 +73,16 @@
       "en": "Database access"
     },
     "explain": {
-      "ro": "Dispozitivul acceptă conexiuni la o bază de date, adică un loc unde sunt păstrate informații. Scanarea nu arată dacă informațiile pot fi citite fără parolă.",
-      "en": "The device accepts connections to a database, a place where information is stored. The scan does not show whether the information can be read without a password."
+      "ro": "Dispozitivul permite conectarea la o bază de date, un loc unde se păstrează informații. Scanarea nu arată dacă este nevoie de parolă.",
+      "en": "The device allows connections to a database, a place that stores information. The scan does not show whether a password is needed."
     },
     "fix": {
       "ro": [
-        "Cere furnizorului IT să verifice ce aplicații au nevoie de baza de date.",
-        "Cere-i să permită conexiuni doar de la acele aplicații."
+        "Cere unui specialist să verifice ce aplicații au nevoie de baza de date.",
+        "Cere specialistului să permită conexiuni doar de la acele aplicații."
       ],
       "en": [
-        "Ask your IT provider to check which applications need the database.",
+        "Ask a specialist to check which applications need the database.",
         "Ask them to allow connections only from those applications."
       ]
     }
@@ -95,17 +95,17 @@
       "en": "RTSP streaming service available"
     },
     "explain": {
-      "ro": "Dispozitivul răspunde ca serviciu RTSP, folosit pentru streaming audio sau video. Scanarea nu dovedește că este o cameră sau că fluxul poate fi accesat fără autentificare.",
-      "en": "The device responds as an RTSP service, used for audio or video streaming. The scan does not establish that it is a camera or that its stream is accessible without authentication."
+      "ro": "Dispozitivul are RTSP, un serviciu pentru sunet sau video. Scanarea nu confirmă că este o cameră sau că poți vedea imaginile fără parolă.",
+      "en": "The device has RTSP, a service for sound or video. The scan cannot confirm it is a camera or that you can watch without a password."
     },
     "fix": {
       "ro": [
         "Oprește transmisia video din setările dispozitivului dacă nu o folosești.",
-        "Cere furnizorului IT să limiteze accesul la dispozitivele aprobate."
+        "Cere unui specialist să limiteze accesul la dispozitivele aprobate."
       ],
       "en": [
         "Turn off video streaming in the device settings if you do not use it.",
-        "Ask your IT provider to limit access to approved devices."
+        "Ask a specialist to limit access to approved devices."
       ]
     }
   },
@@ -124,12 +124,12 @@
       "ro": [
         "Verifică versiunea instalată în setările dispozitivului.",
         "Salvează o copie a setărilor importante.",
-        "Instalează actualizările oferite de producător sau cere ajutorul furnizorului IT."
+        "Instalează actualizările oferite de producător sau cere ajutorul unui specialist."
       ],
       "en": [
         "Check the installed version in the device settings.",
         "Save a copy of important settings.",
-        "Install updates provided by the manufacturer or ask your IT provider for help."
+        "Install updates provided by the manufacturer or ask a specialist for help."
       ]
     }
   },
@@ -141,17 +141,17 @@
       "en": "File transfer through FTP"
     },
     "explain": {
-      "ro": "Dispozitivul acceptă FTP, o metodă de transfer de fișiere care poate trimite date fără să le ascundă. Scanarea nu confirmă protecția fiecărui transfer.",
-      "en": "The device accepts FTP, a file transfer method that can send data without hiding it. The scan does not confirm the protection of each transfer."
+      "ro": "FTP este o metodă de a trimite fișiere. Poate trimite date fără protecție, iar scanarea nu arată dacă fiecare transfer este protejat.",
+      "en": "FTP is a way to send files. It may send data without protection, and the scan does not show whether each transfer is protected."
     },
     "fix": {
       "ro": [
         "Oprește FTP dacă nu îl folosești.",
-        "Cere furnizorului IT o metodă de transfer care protejează fișierele și parolele."
+        "Cere unui specialist o metodă de transfer care protejează fișierele și parolele."
       ],
       "en": [
         "Turn off FTP if you do not use it.",
-        "Ask your IT provider for a transfer method that protects files and passwords."
+        "Ask a specialist for a transfer method that protects files and passwords."
       ]
     }
   },
@@ -163,19 +163,19 @@
       "en": "Settings page without a protected connection"
     },
     "explain": {
-      "ro": "Titlul paginii sugerează o pagină de setări sau conectare, accesibilă prin HTTP. HTTP nu ascunde datele trimise, cum ar fi parolele.",
-      "en": "The page title suggests a settings or sign-in page accessible through HTTP. HTTP does not hide transmitted data, such as passwords."
+      "ro": "Pagina pare să fie pentru setări sau conectare. Folosește HTTP, o conexiune care nu ascunde datele trimise, cum ar fi parolele.",
+      "en": "This page seems to be for settings or signing in. It uses HTTP, a connection that does not hide sent data, such as passwords."
     },
     "fix": {
       "ro": [
         "Evită să introduci parole pe această pagină HTTP.",
         "Activează HTTPS, conexiunea care protejează datele, dacă dispozitivul permite.",
-        "Cere furnizorului IT să dezactiveze accesul la setări prin HTTP."
+        "Cere unui specialist să dezactiveze accesul la setări prin HTTP."
       ],
       "en": [
         "Avoid entering passwords on this HTTP page.",
         "Enable HTTPS, the connection that protects data, if the device supports it.",
-        "Ask your IT provider to disable access to settings through HTTP."
+        "Ask a specialist to disable access to settings through HTTP."
       ]
     }
   },
@@ -215,11 +215,11 @@
     "fix": {
       "ro": [
         "Oprește serviciul MQTT dacă nu îl folosești.",
-        "Cere furnizorului IT să limiteze mesajele la dispozitivele aprobate și să protejeze conexiunea."
+        "Cere unui specialist să limiteze mesajele la dispozitivele aprobate și să protejeze conexiunea."
       ],
       "en": [
         "Turn off the MQTT service if you do not use it.",
-        "Ask your IT provider to limit messages to approved devices and protect the connection."
+        "Ask a specialist to limit messages to approved devices and protect the connection."
       ]
     }
   },
@@ -231,8 +231,8 @@
       "en": "Automatic connection through UPnP"
     },
     "explain": {
-      "ro": "Dispozitivul răspunde prin UPnP, o metodă prin care dispozitivele se găsesc și pot cere schimbări de conexiune. Scanarea nu arată că există acces din internet.",
-      "en": "The device responds through UPnP, a way for devices to find each other and request connection changes. The scan does not show that internet access exists."
+      "ro": "UPnP ajută dispozitivele să se găsească și să schimbe setările conexiunii. Scanarea nu arată dacă cineva se poate conecta din internet.",
+      "en": "UPnP helps devices find each other and change connection settings. The scan does not show whether someone can connect from the internet."
     },
     "fix": {
       "ro": [
@@ -259,11 +259,11 @@
     "fix": {
       "ro": [
         "Oprește SNMP dacă nu îl folosești.",
-        "Cere furnizorului IT să limiteze monitorizarea la dispozitivele aprobate."
+        "Cere unui specialist să limiteze monitorizarea la dispozitivele aprobate."
       ],
       "en": [
         "Turn off SNMP if you do not use it.",
-        "Ask your IT provider to limit monitoring to approved devices."
+        "Ask a specialist to limit monitoring to approved devices."
       ]
     }
   },
@@ -281,33 +281,33 @@
     "fix": {
       "ro": [
         "Dezactivează imprimarea directă dacă nu o folosești.",
-        "Cere furnizorului IT să permită imprimarea doar de pe dispozitivele aprobate."
+        "Cere unui specialist să permită imprimarea doar de pe dispozitivele aprobate."
       ],
       "en": [
         "Disable direct printing if you do not use it.",
-        "Ask your IT provider to allow printing only from approved devices."
+        "Ask a specialist to allow printing only from approved devices."
       ]
     }
   },
   "UNKNOWN_DEVICE": {
-    "severity": "info",
-    "points": 0,
+    "severity": "low",
+    "points": 5,
     "title": {
       "ro": "Dispozitiv care poate fi necunoscut",
       "en": "Device that may be unfamiliar"
     },
     "explain": {
-      "ro": "Scanarea nu a găsit un nume sau un producător pentru acest dispozitiv. Lipsa identificării nu dovedește un risc și nu scade scorul.",
-      "en": "The scan did not find a name or manufacturer for this device. Missing identification does not establish a risk and does not reduce the score."
+      "ro": "Scanarea nu a găsit un nume sau un producător pentru acest dispozitiv. Lipsa identificării nu dovedește singură un risc; regula oficială scade totuși 5 puncte din scor.",
+      "en": "The scan did not find a name or manufacturer for this device. Missing identification does not by itself establish a risk; the official rule still deducts 5 points from the score."
     },
     "fix": {
       "ro": [
         "Compară adresa de rețea afișată cu lista dispozitivelor din router.",
-        "Cere ajutorul furnizorului IT pentru identificare înainte de a bloca dispozitivul."
+        "Cere ajutorul unui specialist pentru identificare înainte de a bloca dispozitivul."
       ],
       "en": [
         "Compare the displayed network address with the device list in your router.",
-        "Ask your IT provider for help identifying the device before blocking it."
+        "Ask a specialist for help identifying the device before blocking it."
       ]
     }
   },

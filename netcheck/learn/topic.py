@@ -28,20 +28,29 @@ repar rezultat rezultate scor severitate imprimanta deschis deschise inchis expu
 actualizare actualizari incep incepe prim primul pas pasi atac telnet ssh ftp rdp vnc smb mqtt snmp
 upnp http https rtsp dns tcp udp nat vpn wpa wpa2 wpa3 admin
 """.split())
-# Short follow-ups are only on topic when a device from the scan is selected.
-_CONTEXT = set("""
-inseamna mean means explica explain grav serious periculos dangerous danger why cum how rezolv solve help
-ajuta ajutor important worry ingrijorat
+# Only complete, neutral follow-ups inherit the selected device's context.
+# A word such as "cum"/"how" alone never makes an unrelated question relevant.
+_FOLLOWUPS = set("""
+ce inseamna|ce inseamna asta|ce inseamna acest lucru|explica|explica mi|explica asta|
+explica mi asta|este grav|e grav|este periculos|e periculos|de ce|cum|cum fac|
+cum fac asta|cum rezolv|cum rezolv asta|ce pot face|ma poti ajuta|
+what does this mean|what does it mean|explain|explain this|is it serious|
+is this dangerous|why|how|how do i do that|how do i fix it|can you help
+""".replace("\n", "").split("|"))
+# Words from multi-word keywords and finding codes are not topic evidence alone.
+_GENERIC = set("""
+de la and the a an in on to for of si cu pe din un o este e ce cum how what
+open closed exposed cleartext unknown outdated first start step steps prim primul pas pasi
+safe safety secure sigur sigura siguranta important help fix fixes problem problems problema probleme
+name nume date text string sir default implicita local locale control public
 """.split())
 _STEMS = ("scanar", "vulnerab", "securit", "dispoziti", "imprimant", "remedi", "repar", "rezultat",
           "protej", "protect", "configur", "reteau", "retel")
 _PHRASES = ("cu ce incep", "where do i start", "ce trebuie sa fac", "what should i do")
 
 REFUSAL = {
-    "ro": "Pot răspunde doar la întrebări despre această scanare și despre securitatea rețelei tale "
-          "(dispozitive, porturi, probleme, pași de reparare). Încearcă o întrebare din această zonă.",
-    "en": "I can only answer questions about this scan and your network's security "
-          "(devices, ports, problems, how to fix them). Please try a question in that area.",
+    "ro": "Nu am informații despre asta în documentația mea.",
+    "en": "I do not have information about that in my documentation.",
 }
 
 
@@ -62,14 +71,27 @@ def _vocabulary() -> set[str]:
             words.update(_TOKEN.findall(_norm(code)))
     except Exception:  # catalog problems are handled elsewhere; the static list still works
         pass
-    return words
+    return words - _GENERIC
 
 
 def is_on_topic(question: str, analysis: dict[str, Any] | None = None, *, has_device: bool = False) -> bool:
     text = _norm(question)
-    if any(phrase in text for phrase in _PHRASES):
+    normalized_question = " ".join(_TOKEN.findall(text))
+    # Intent detection uses broad patterns; only a complete neutral question
+    # may inherit scan context without an explicit network topic.
+    neutral_intents = {
+        "care e scorul meu", "ce scor am", "explica mi scorul", "cum se calculeaza scorului",
+        "care dispozitiv e cel mai periculos", "care e cea mai grava problema",
+        "ce inseamna asta", "ce inseamna", "e grav", "cat de grav e", "cum repar",
+        "cum il repar", "cum repar cea mai grava problema",
+        "what is my score", "which device is the most dangerous", "what does this mean",
+        "is it bad", "is this serious", "how do i fix it",
+    }
+    if normalized_question in _PHRASES or normalized_question in neutral_intents:
         return True
     if analysis and any(ip in {d.get("ip") for d in analysis.get("devices", [])} for ip in _IP.findall(text)):
         return True
-    vocabulary = _vocabulary() | (_CONTEXT if has_device else set())
+    if has_device and normalized_question in _FOLLOWUPS:
+        return True
+    vocabulary = _vocabulary()
     return any(t in vocabulary or (len(t) >= 5 and t.startswith(_STEMS)) for t in _TOKEN.findall(text))

@@ -2117,7 +2117,7 @@ dialog.sheet .row-actions {
 .page-head.swap .page-sub { text-align: right; }
 .page-head.swap h1 { overflow-wrap: anywhere; }
 .page.import-detail { height: auto; min-height: 100%; }
-.nv.nv-import {
+#page-import .nv.nv-import {
   flex: none; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: "graf score" "graf detail" "vuln detail";
 }
@@ -2135,7 +2135,7 @@ dialog.sheet .row-actions {
 .insp-empty { display: grid; place-items: center; align-content: center; gap: 12px; min-height: 200px; padding: 32px 20px; text-align: center; }
 .insp-empty svg.big { width: 48px; height: 48px; color: var(--navy); }
 @media (max-width: 899px) {
-  .nv.nv-import { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 480px auto auto; grid-template-areas: "score" "graf" "vuln" "detail"; }
+  #page-import .nv.nv-import { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 480px auto auto; grid-template-areas: "score" "graf" "vuln" "detail"; }
   .nv-import .inspector { position: static; height: auto; }
 }
 

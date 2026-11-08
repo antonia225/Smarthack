@@ -15,7 +15,7 @@ _EXPECTED = {
     **dict.fromkeys(("FTP_CLEARTEXT", "HTTP_ADMIN_CLEARTEXT", "SMB_EXPOSED",
                      "MQTT_EXPOSED", "UPNP_EXPOSED", "SNMP_EXPOSED"), ("medium", 10)),
     "PRINTER_RAW_EXPOSED": ("low", 5),
-    "UNKNOWN_DEVICE": ("info", 0),
+    "UNKNOWN_DEVICE": ("low", 5),
     "SSH_OPEN": ("info", 0),
 }
 

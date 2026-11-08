@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from netcheck import api, history, scanner, service
 from netcheck.scanner import NetworkInfo, ScanResult
+from netcheck.scoring import analyze_file
 
 VALIDATION = Path(__file__).parent / "validation"
 LAB = NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1")
@@ -21,6 +22,11 @@ def client(monkeypatch, tmp_path):
 def import_file(client, name, display=None):
     return client.post(f"/api/import?filename={display or name}", content=(VALIDATION / name).read_bytes(),
                        headers={"content-type": "application/xml"})
+
+
+def save_broken():
+    """An unreadable scan in history (a live scan can still fail to parse); imports no longer save these."""
+    return history.save_scan({**analyze_file(VALIDATION / "V7_broken.xml"), "source": "live"})
 
 
 # ---- source marking: Home reads live scans, Import never appears there ----
@@ -113,20 +119,23 @@ def test_preview_ready_on_a_hotspot(client):
     with patch.object(scanner, "detect_network", return_value=LAB), \
             patch("netcheck.api.port_specification", return_value="T:80,443,U:53,123,161,1900,5353"):
         body = client.get("/api/scan/preview").json()
-    assert body["target"] == "172.20.10.0/28" and body["nmap"] is True and body["tcp_ports"] == 2
+    # No saved lab in this fixture: the preview names no target and explains why.
+    assert body["target"] is None and body["nmap"] is True and body["tcp_ports"] == 2
+    assert any("configure-lab" in p for p in body["problems"])
 
 
 # ---- import / list / get / compare / delete ----
 def test_import_batch_and_broken_file_do_not_crash(client):
     ids = [import_file(client, n).json() for n in ("V1_home_basic.xml", "V7_broken.xml", "V3_small_office.xml")]
     assert [i["status"] for i in ids] == ["ok", "error", "ok"]
-    assert len(client.get("/api/scans").json()) == 3
+    assert ids[1]["scan_id"] is None
+    assert [r["id"] for r in client.get("/api/scans").json()] == [ids[0]["scan_id"], ids[2]["scan_id"]]
 
 
 def test_get_unknown_scan_is_404_and_compare_needs_valid_scans(client):
     assert client.get("/api/scans/999").status_code == 404
     ok = import_file(client, "V1_home_basic.xml").json()["scan_id"]
-    broken = import_file(client, "V7_broken.xml").json()["scan_id"]
+    broken = save_broken()
     assert client.get(f"/api/compare?a={ok}&b={broken}").status_code == 400
     assert client.get(f"/api/compare?a={ok}&b=999").status_code == 404
 
@@ -152,7 +161,7 @@ def test_ask_errors(client):
     assert client.post("/api/ask", json={"scan_id": 99, "question": "x", "lang": "ro"}).status_code == 404
     scan_id = import_file(client, "V2_smart_home.xml").json()["scan_id"]
     assert client.post("/api/ask", json={"scan_id": scan_id, "device_ip": "1.2.3.4", "question": "x", "lang": "ro"}).status_code == 404
-    broken = import_file(client, "V7_broken.xml").json()["scan_id"]
+    broken = save_broken()
     assert client.post("/api/ask", json={"scan_id": broken, "question": "x", "lang": "ro"}).status_code == 400
     assert client.post("/api/ask", json={"scan_id": scan_id, "question": "", "lang": "ro"}).status_code == 422
 
@@ -175,6 +184,6 @@ def test_report_has_no_hostname_no_full_mac_and_escapes(client):
 
 def test_report_rejects_bad_requests(client):
     assert client.get("/api/report?a=999").status_code == 404
-    broken = import_file(client, "V7_broken.xml").json()["scan_id"]
+    broken = save_broken()
     assert client.get(f"/api/report?a={broken}").status_code == 400
     assert client.get("/api/report?a=1&lang=fr").status_code == 422

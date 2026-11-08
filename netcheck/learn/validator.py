@@ -44,3 +44,33 @@ def validate(answer: str, evidence_text: str, passages: Iterable[Passage]) -> bo
         if match.group(1) not in allowed_numbers:
             return False
     return True
+
+
+def presentation(answer: str) -> str:
+    """Remove internal evidence markers before returning or saving an answer."""
+    return re.sub(r"\s+", " ", CITATION_RE.sub("", answer)).strip()
+
+
+def readable(answer: str, lang: str) -> bool:
+    """Fail closed on long prose, source disclosure or obvious mixed languages."""
+    import unicodedata
+
+    words = re.findall(r"[^\W\d_]+", answer.casefold())
+    words = ["".join(c for c in unicodedata.normalize("NFKD", w)
+                     if not unicodedata.combining(c)) for w in words]
+    if not words or len(answer.split()) > 60 or URL_RE.search(answer):
+        return False
+    sentences = [s.split() for s in re.split(r"[.!?]+(?:\s|$)", answer) if s.strip()]
+    if len(sentences) > 3 or any(len(s) > 20 for s in sentences):
+        return False
+    foreign = {
+        "ro": set("the this that these those your you is can should must with from password passwords device devices network turn off information about documentation".split()),
+        "en": set("este sunt acest aceasta acestea trebuie poti poate pentru despre dispozitiv dispozitivul dispozitive reteaua parola parole parolele informatii documentatia".split()),
+    }
+    native = {
+        "ro": set("si sau de la un o in pe cu ca nu ai are este sunt poate poti trebuie foloseste dispozitivul reteaua parola parolele datele".split()),
+        "en": set("the a an and or to in on with is are can may your you it this that do not use uses has have".split()),
+    }
+    if set(words) & foreign[lang] or not set(words) & native[lang]:
+        return False
+    return not re.search(r"\b(source|sources|according|wikipedia|documentation|sursa|surse|surselor|conform|documentatia)\b", " ".join(words))

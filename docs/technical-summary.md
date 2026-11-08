@@ -1,45 +1,58 @@
-# Netcheck — sumar tehnic / technical summary
+# NetCheck — technical summary
 
-## Laborator / Lab
+## Lab
 
-Scannerul este laptopul macOS conectat la hotspot; țintele sunt laptopurile și
-serviciile autorizate. IP-urile, interfețele și prefixele se verifică în fiecare
-sesiune și se notează în [`lab/session-template.md`](../lab/session-template.md).
+A macOS scanner laptop on the team's iPhone hotspot (`172.20.10.0/28` when last
+checked); targets are the team's laptops and `lab/services/`. Addresses are
+re-checked each session (`netcheck network`, no traffic) and recorded in
+[`lab/session-template.md`](../lab/session-template.md).
 
-## Scanner și guardrail
+## Architecture
 
-`scanner.py` detectează rețeaua locală, validează strict IPv4 RFC1918, allowlist,
-prefix maxim `/24`, confirmarea și revalidarea LAN-ului înainte de proces.
-Comanda Nmap este fixă: TCP top 1.000 din `nmap-services`, UDP-urile cerute,
-identificare servicii, `http-title`, limită de rată și timeout. Pe macOS, sudo
-poate invoca numai wrapperul root-owned cu cale XML UUID și argumente fixe.
-`scan --confirm` fără țintă folosește subnetul persistat al laboratorului.
+Nmap XML → `parser.py` (defusedxml, 10 MB limit) → `rules.py` (fixed rules) →
+`scoring.py` (100 − points; high 20, medium 10, low 5, info 0; floor 0) →
+`catalog.json` (RO/EN explanation and fix steps). Findings, severities and score
+come only from this code: deterministic, no LLM; the optional model only phrases
+answers about an already computed scan. History: SQLite (`netcheck.db`).
+FastAPI on `127.0.0.1` with `TrustedHostMiddleware` serves the UI. CLI `scan` and
+`POST /api/scan` share one guardrail path (`service.scan()` →
+`validate_scan_request()`): RFC1918 IPv4 only, at most `/24`, inside the
+allowlist and the detected LAN, explicit confirmation; only then the fixed Nmap
+command runs.
 
-## Presupuneri și limitări / assumptions and limits
+## Assumptions
 
-Configurația IP nu autentifică proprietarul hotspot-ului. Scanarea reală,
-privilegiile macOS, firewall-ul, timpul pentru `/24` și rezultatele BEFORE/AFTER
-rămân NEVERIFICAT până la rularea manuală. XML-ul brut poate conține date locale.
-Nu se folosește LLM în scanner; deciziile sunt deterministe.
+A matching IP/interface/gateway means "our hotspot" (not owner authentication).
+Without `lab/network.json` the allowlist is the connected subnet if ≤ `/24`;
+larger networks (venue Wi-Fi) are refused.
 
-Motorul de analiză, findings și scorul rămân deterministe și independente de
-LLM. UI-ul include Learning Mode și raportul HTML pentru furnizorul IT.
+## Limitations
+
+- Live scan via the macOS sudo wrapper: not verified end to end; `/24` in 5 min: not measured.
+- macOS: on the 300 s timeout only `sudo` is killed; the root `nmap` keeps
+  running (seen once for 53 min) → `pgrep -l nmap`, `sudo kill <pid>`. Scan single IPs.
+- `lab-run` writes to `lab/<label>/`, which the macOS wrapper rejects (from code, not run);
+  use `scan <ip> --confirm` and copy the XML unchanged to `lab/before|after`.
+- Windows/Linux network detection: simulated tests only. Live LLM: not verified.
 
 ## LLM use
 
-Learning Mode uses an optional, evidence-grounded LLM only to explain an
-already computed scan. The provider receives pseudonymized device labels,
-device type, IP, service names, ports, finding codes, severities and score,
-as well as the unfiltered user question and retrieved passages; MAC addresses, hostnames, raw
-banners, and HTTP titles are excluded. It never creates findings, severities,
-scores, or remediation decisions. Missing credentials, network failure, timeout,
-provider error, or validator rejection returns the local catalog/documentation
-fallback. See [`learning-mode.md`](learning-mode.md).
+Optional OpenAI-compatible provider, only if `NETCHECK_LLM_API_KEY` and
+`NETCHECK_LLM_MODEL` are set. Sent: score, labels ("Device 1"), device type, IPs,
+`protocol/port service`, finding codes, severities, corpus passages, the question
+verbatim. Not sent: MAC, vendor, hostname, product/version, banners, HTTP titles.
+Scan requests only become proposals needing manual confirmation. Any failure
+falls back to the local catalogue and corpus. Pseudonymisation is not
+anonymisation. See [`learning-mode.md`](learning-mode.md).
 
-Pseudonymization is not anonymization. A missing corpus does not disable a
-configured provider. Validation is heuristic and does not prove semantic
-correctness. Citation IDs must match the supplied evidence or retrieved passages. Browser accessibility, full RO/EN coverage,
-and live provider verification remain subject to the explicit verification
-record in `learning-mode.md`. The corpus builder completed successfully for
-all 34 Phase 2a documents (642 passages), with revision metadata and offline
-rebuild verification.
+## Measured
+
+On `0294d40` (PR #22 restore-official-rules, not yet merged):
+- Validation Set: 24/24 findings, scores 90, 40, 45, 25, 50, 60, 100, ERROR,
+  byte-identical to the official CSVs; repeat run identical (`cmp`).
+- `analyze`, 8 files: 0.07–0.18 s wall time per run (4 runs, `/usr/bin/time -p`).
+- `pytest -q -m "not native"`: 331 passed, 1 skipped (no Playwright), 1 deselected.
+
+<!-- update after restore-official-rules (PR #22) is merged: replace commit labels with the merge commit -->
+On `767b3c4` (`main` before PR #22) `UNKNOWN_DEVICE` is info/0, so V4 = 30, not 25.
+BEFORE/AFTER lab results: pending (no live capture produced yet).

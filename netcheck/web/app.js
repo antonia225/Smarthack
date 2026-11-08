@@ -905,7 +905,7 @@ function createHomePage() {
   };
 }
 
-/* ---- History: live scans only ---- */
+/* ---- History: live scans by default; optionally imports too ---- */
 function createHistoryPage() {
   const root = $("page-history");
   const head = pageHeader(root, "histTitle", "history-title");
@@ -913,8 +913,18 @@ function createHistoryPage() {
   head.actions.append(exportBtn, clearBtn);
   const historyStatus = el("div", "notice"); historyStatus.hidden = true; historyStatus.setAttribute("role", "status"); root.append(historyStatus);
   const body = el("div"); body.style.display = "contents";
-  root.append(body);
-  const s = { scans: [], selectedId: null, detail: null, detailCache: new Map(), loaded: false, cmpBefore: null, cmpAfter: null };
+  /* Source filter: live scans only (default, same rule as Home) or every saved scan, imports included. */
+  const filterBox = el("fieldset", "hist-filter"); const filterLegend = el("legend");
+  const filterLabels = {};
+  filterBox.append(filterLegend);
+  for (const [value, key] of [["live", "histFilterLive"], ["all", "histFilterAll"]]) {
+    const label = el("label"); const radio = el("input"); radio.type = "radio"; radio.name = "hist-filter"; radio.value = value; radio.checked = value === "live";
+    radio.addEventListener("change", () => { if (radio.checked) setFilter(value === "all"); });
+    const span = el("span", "", text(key)); filterLabels[key] = span;
+    label.append(radio, span); filterBox.append(label);
+  }
+  root.append(filterBox, body);
+  const s = { scans: [], all: [], showAll: false, selectedId: null, detail: null, detailCache: new Map(), loaded: false, cmpBefore: null, cmpAfter: null };
   const side = createSidePanel();
   const menuBefore = createMenu("compareBefore", (v) => { s.cmpBefore = Number(v); compare(); });
   const menuAfter = createMenu("compareAfter", (v) => { s.cmpAfter = Number(v); compare(); });
@@ -971,7 +981,8 @@ function createHistoryPage() {
     const ul = el("ul", "scan-list");
     for (const scan of s.scans.slice().reverse()) {
       const li = el("li"); const b = el("button", "scan-row"); b.type = "button"; b.setAttribute("aria-pressed", String(scan.id === s.selectedId));
-      b.append(el("span", "when", fmtDate(scan.scanned_at)), el("span", "sc", scan.status === "ok" ? text("scanRowScore", { score: scan.network_score }) : text("scanError")));
+      const when = fmtDate(scan.scanned_at) + (scan.source === "live" ? "" : " · " + text("histImported", { name: scan.file }));
+      b.append(el("span", "when", when), el("span", "sc", scan.status === "ok" ? text("scanRowScore", { score: scan.network_score }) : text("scanError")));
       b.disabled = scan.status !== "ok";
       b.addEventListener("click", () => select(scan.id));
       li.append(b); ul.append(li);
@@ -982,7 +993,7 @@ function createHistoryPage() {
     compareCard.firstChild.textContent = text("compareTitle");
     menuBefore.setLabel(); menuAfter.setLabel();
     const valid = validScans();
-    const items = valid.map((x) => ({ value: x.id, label: fmtDate(x.scanned_at) + " · " + text("scanRowScore", { score: x.network_score }) }));
+    const items = valid.map((x) => ({ value: x.id, label: fmtDate(x.scanned_at) + " · " + text("scanRowScore", { score: x.network_score }) + (x.source === "live" ? "" : " · " + text("histImported", { name: x.file })) }));
     if (valid.length >= 2) {
       if (!valid.some((x) => x.id === s.cmpBefore)) s.cmpBefore = valid[valid.length - 2].id;
       if (!valid.some((x) => x.id === s.cmpAfter)) s.cmpAfter = valid[valid.length - 1].id;
@@ -1034,13 +1045,20 @@ function createHistoryPage() {
       return;
     }
     historyStatus.hidden = true;
-    s.scans = r.data.filter((x) => HOME_SOURCE === null || x.source === HOME_SOURCE);
+    s.all = r.data;
+    await applyFilter();
+  }
+  async function applyFilter() {
+    s.scans = s.all.filter((x) => s.showAll || HOME_SOURCE === null || x.source === HOME_SOURCE);
     s.loaded = true; paintAll();
     const valid = validScans();
     if (valid.length && !valid.some((x) => x.id === s.selectedId)) await select(valid[valid.length - 1].id);
   }
+  function setFilter(showAll) { s.showAll = showAll; if (s.loaded) applyFilter(); }
   function paintAll() {
     head.h1.textContent = text("histTitle");
+    filterLegend.textContent = text("histFilter");
+    for (const key in filterLabels) filterLabels[key].textContent = text(key);
     setButtonLabel(exportBtn, text("exportBtn")); setButtonLabel(clearBtn, text("clearHistory"));
     const has = s.scans.length > 0;
     emptyCard.hidden = has; histGrid.hidden = !has; exportBtn.hidden = clearBtn.hidden = !has;
@@ -1080,7 +1098,7 @@ function createHistoryPage() {
   return {
     root, titleEl: head.h1,
     activate() { refresh(); }, rerender() { if (s.loaded) paintAll(); else head.h1.textContent = text("histTitle"); },
-    reset() { s.scans = []; s.detailCache.clear(); s.selectedId = null; paintAll(); },
+    reset() { s.scans = []; s.all = []; s.detailCache.clear(); s.selectedId = null; paintAll(); },
     onEscape: () => false, init() { paintAll(); },
   };
 }

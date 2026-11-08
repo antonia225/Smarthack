@@ -60,6 +60,7 @@ const TEXTS = {
     chatUnavailable: "Asistentul nu e disponibil acum. Iată ce știm din scanare:",
     /* istoric */
     histTitle: "Vezi ce s-a schimbat.", exportBtn: "Exportă raport", clearHistory: "Șterge istoricul",
+    histFilter: "Ce scanări arăt", histFilterLive: "Doar scanări live", histFilterAll: "Toate, inclusiv importurile", histImported: "import: {name}",
     histEmptyTitle: "Istoricul e gol", histEmptyText: "Fiecare scanare a rețelei tale apare aici, ca să vezi dacă scorul se îmbunătățește.",
     chartTitle: "Cum evoluează scorul", chartNeedMore: "Fă încă o scanare ca să vezi evoluția.", chartAria: "Grafic cu scorul din {n} scanări, de la {first} la {last}", pointAria: "Scanarea din {when}: scor {score}",
     scansTitle: "Scanări salvate", scanRowScore: "scor {score}", scanError: "nu s-a putut citi",
@@ -126,6 +127,7 @@ const TEXTS = {
     badgeAI: "AI assistant", badgeDocs: "From documentation", sources: "Sources", chatThinking: "Searching the documentation…", chatLogLabel: "Conversation",
     chatUnavailable: "The assistant is not available right now. Here is what the scan tells us:",
     histTitle: "See what has changed.", exportBtn: "Export report", clearHistory: "Clear history",
+    histFilter: "Which scans to show", histFilterLive: "Live scans only", histFilterAll: "All, including imports", histImported: "import: {name}",
     histEmptyTitle: "History is empty", histEmptyText: "Every scan of your network shows up here, so you can see whether the score gets better.",
     chartTitle: "How the score changes", chartNeedMore: "Run one more scan to see how it changes.", chartAria: "Chart of the score over {n} scans, from {first} to {last}", pointAria: "Scan from {when}: score {score}",
     scansTitle: "Saved scans", scanRowScore: "score {score}", scanError: "could not be read",

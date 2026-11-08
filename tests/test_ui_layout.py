@@ -227,3 +227,25 @@ def test_import_list_cards_detail_back_and_error_autodismiss(browser, server):
     assert not page.is_visible("#page-import .btn >> text=Importă alte fișiere")
     page.keyboard.press("Escape")
     assert page.is_visible("#page-import .file-card")
+
+
+def test_history_shows_imports_only_when_asked(browser, server):
+    _save(server["db"], "V6b_after.xml", source="import")
+    page = _page(browser, server)
+    page.click(".nav-item[data-page=history]")
+    page.wait_for_selector("#page-history .scan-row")
+    rows = page.locator("#page-history .scan-row")
+    live = rows.count()
+    assert "import:" not in page.inner_text("#page-history .scan-list")
+    page.focus("#page-history input[value=live]")
+    page.keyboard.press("ArrowRight")
+    page.wait_for_function("(n) => document.querySelectorAll('#page-history .scan-row').length > n", arg=live)
+    assert "import: V6b_after.xml" in page.inner_text("#page-history .scan-list")
+    page.click("#page-history .pickers .menu-btn >> nth=1")
+    page.click("#page-history .pickers .field >> nth=1 >> .menu-opt >> text=import: V6b_after.xml")
+    assert "import: V6b_after.xml" in page.inner_text("#page-history .pickers .menu-btn >> nth=1")
+    page.focus("#page-history input[value=all]")
+    for button in page.locator("#page-history .pickers .menu-btn").all():
+        assert button.evaluate("e => e.getBoundingClientRect().right <= e.closest('.pickers').getBoundingClientRect().right + 1")
+    page.keyboard.press("ArrowLeft")
+    page.wait_for_function("(n) => document.querySelectorAll('#page-history .scan-row').length === n", arg=live)

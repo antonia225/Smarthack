@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///C:/Program Files (x86)/Nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.80 scan initiated Sun Nov 08 11:31:03 2026 as: &quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -n -Pn -sT -sV -&#45;version-all -&#45;max-rate 100 -p 21,23,1883,5432 -oX lab\\after\\services.fd2da5\\docker.xml 172.20.10.2 -->
+<nmaprun scanner="nmap" args="&quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -n -Pn -sT -sV -&#45;version-all -&#45;max-rate 100 -p 21,23,1883,5432 -oX lab\\after\\services.fd2da5\\docker.xml 172.20.10.2" start="1794130263" startstr="Sun Nov 08 11:31:03 2026" version="7.80" xmloutputversion="1.04">
+<scaninfo type="connect" protocol="tcp" numservices="4" services="21,23,1883,5432"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1794130264" endtime="1794130267"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="172.20.10.2" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="21"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="ftp" method="table" conf="3"/></port>
+<port protocol="tcp" portid="23"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="telnet" method="table" conf="3"/></port>
+<port protocol="tcp" portid="1883"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="mqtt" method="table" conf="3"/></port>
+<port protocol="tcp" portid="5432"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="postgresql" method="table" conf="3"/></port>
+</ports>
+</host>
+<runstats><finished time="1794130267" timestr="Sun Nov 08 11:31:07 2026" elapsed="4.28" summary="Nmap done at Sun Nov 08 11:31:07 2026; 1 IP address (1 host up) scanned in 4.28 seconds" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///C:/Program Files (x86)/Nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.80 scan initiated Sun Nov 08 11:30:50 2026 as: &quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -n -Pn -sT -sV -&#45;version-all -&#45;max-rate 100 -&#45;script http-title -p 8080 -oX lab\\after\\services.fd2da5\\http.xml 172.20.10.2 -->
+<nmaprun scanner="nmap" args="&quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -n -Pn -sT -sV -&#45;version-all -&#45;max-rate 100 -&#45;script http-title -p 8080 -oX lab\\after\\services.fd2da5\\http.xml 172.20.10.2" start="1794130250" startstr="Sun Nov 08 11:30:50 2026" version="7.80" xmloutputversion="1.04">
+<scaninfo type="connect" protocol="tcp" numservices="1" services="8080"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1794130251" endtime="1794130258"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="172.20.10.2" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="8080"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http" product="nginx" version="1.31.8" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx:1.31.8</cpe></service><script id="http-server-header" output="nginx/1.31.8"><elem>nginx/1.31.8</elem>
+</script><script id="http-title" output="Admin Login"><elem key="title">Admin Login</elem>
+</script></port>
+</ports>
+<times srtt="59000" rttvar="59000" to="295000"/>
+</host>
+<runstats><finished time="1794130258" timestr="Sun Nov 08 11:30:58 2026" elapsed="7.70" summary="Nmap done at Sun Nov 08 11:30:58 2026; 1 IP address (1 host up) scanned in 7.70 seconds" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

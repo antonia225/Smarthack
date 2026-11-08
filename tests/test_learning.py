@@ -404,6 +404,64 @@ def test_remediation_validates_finding_and_forwards_only_explicit_request(monkey
     assert client.post("/api/agent/remediate", json=payload).status_code == 502
 
 
+def test_remediation_plan_is_finding_scoped_and_requires_confirmation(tmp_path, monkeypatch):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    finding = history.get_scan(scan_id)["findings"][0]
+    payload = {
+        "scan_id": scan_id,
+        "device_ip": finding["ip"],
+        "finding_code": finding["code"],
+        "port": finding.get("port"),
+        "lang": "ro",
+    }
+    response = client.post("/api/agent/plan", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "proposed"
+    assert body["requires_confirmation"] is True
+    assert body["finding"]["code"] == finding["code"]
+    assert body["finding"]["fix"]
+
+
+def test_local_remediation_is_opt_in_and_finding_scoped(monkeypatch, tmp_path):
+    from netcheck import local_remediation
+
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    finding = next(
+        finding
+        for finding in history.get_scan(scan_id)["findings"]
+        if finding["code"] in local_remediation.supported_findings()
+    )
+    payload = {
+        "scan_id": scan_id,
+        "device_ip": finding["ip"],
+        "finding_code": finding["code"],
+        "port": finding.get("port"),
+        "lang": "ro",
+        "confirm": True,
+    }
+    calls = []
+    monkeypatch.setenv("NETCHECK_REMEDIATION_URL", "local://lab")
+    monkeypatch.setattr(
+        local_remediation.scanner,
+        "validate_scan_request",
+        lambda target, confirm: object(),
+    )
+    monkeypatch.setattr(
+        local_remediation.subprocess,
+        "run",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    response = client.post("/api/agent/remediate", json=payload)
+    assert response.status_code == 200
+    assert calls[0][0][0] == [
+        "docker",
+        "compose",
+        "stop",
+        *local_remediation._SERVICES_BY_FINDING[finding["code"]],
+    ]
+
+
 @pytest.mark.parametrize("lang,question,expected", [
     ("ro", "Cum dezactivez Telnet?", "marca și modelul"),
     ("en", "How do I disable Telnet?", "brand and model"),

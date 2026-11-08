@@ -8,12 +8,13 @@ import tempfile
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from netcheck import history, scanner, service
+from netcheck import auth, history, scanner, service
 from netcheck.scoring import analyze_file
 from netcheck.catalog import CatalogError, attach_explanations
 from netcheck.learn_api import router as learn_router
@@ -27,6 +28,10 @@ class ScanRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target: StrictStr | None = None
     confirm: StrictBool = False
+
+
+def _user(request: Request) -> dict[str, Any] | None:
+    return auth.get_session(request.cookies.get(auth.SESSION_COOKIE))
 
 
 def _error_response(
@@ -60,15 +65,47 @@ def create_app(
     application.include_router(learn_router)
     application.include_router(remediation_router)
 
+    @application.get("/api/auth/me")
+    def auth_me(request: Request) -> dict[str, Any]:
+        user = _user(request)
+        return {"authenticated": bool(user), "user": user}
+
+    @application.post("/api/auth/register")
+    async def auth_register(request: Request, response: Response) -> dict[str, Any]:
+        body = await request.json()
+        try:
+            user = auth.create_user(str(body.get("username", "")), str(body.get("password", "")))
+        except ValueError as exc:
+            raise HTTPException(400, detail=str(exc)) from exc
+        response.set_cookie(auth.SESSION_COOKIE, auth.create_session(user["id"]), httponly=True, samesite="lax", max_age=auth.SESSION_DAYS * 86400)
+        return {"user": user}
+
+    @application.post("/api/auth/login")
+    async def auth_login(request: Request, response: Response) -> dict[str, Any]:
+        body = await request.json()
+        user = auth.authenticate(str(body.get("username", "")), str(body.get("password", "")))
+        if not user:
+            raise HTTPException(401, detail="invalid_credentials")
+        response.set_cookie(auth.SESSION_COOKIE, auth.create_session(user["id"]), httponly=True, samesite="lax", max_age=auth.SESSION_DAYS * 86400)
+        return {"user": user}
+
+    @application.post("/api/auth/logout")
+    def auth_logout(request: Request, response: Response) -> dict[str, str]:
+        auth.delete_session(request.cookies.get(auth.SESSION_COOKIE))
+        response.delete_cookie(auth.SESSION_COOKIE)
+        return {"status": "ok"}
+
     @application.get("/api/report", response_class=HTMLResponse)
     def report(
+        request: Request,
         a: int = Query(...),
         b: int | None = Query(None),
         lang: Literal["ro", "en"] = Query("ro"),
     ) -> HTMLResponse:
         try:
-            current = history.get_scan(b if b is not None else a)
-            before = history.get_scan(a) if b is not None else None
+            user = _user(request)
+            current = history.get_scan(b if b is not None else a, user_id=user["id"] if user else None)
+            before = history.get_scan(a, user_id=user["id"] if user else None) if b is not None else None
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Scan not found.") from exc
         if current.get("status") != "ok" or (before is not None and before.get("status") != "ok"):
@@ -138,31 +175,41 @@ def create_app(
         analysis["source"] = "import"
         explained = attach_explanations(analysis, lang)
         # A file that cannot be read is reported to the caller but not kept in history.
-        scan_id = history.save_scan(analysis) if analysis.get("status") == "ok" else None
+        user = _user(request)
+        scan_id = history.save_scan(analysis, user_id=user["id"] if user else None) if analysis.get("status") == "ok" else None
         return {"scan_id": scan_id, **explained}
 
     @application.get("/api/scans")
-    def scans() -> list[dict[str, Any]]:
-        return history.list_scans()
+    def scans(request: Request) -> list[dict[str, Any]]:
+        user = _user(request)
+        return history.list_scans(user_id=user["id"] if user else None)
 
     @application.get("/api/scans/{scan_id}")
     def scan(
+        request: Request,
         scan_id: int, lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any]:
         try:
-            analysis = history.get_scan(scan_id)
+            user = _user(request)
+            analysis = history.get_scan(scan_id, user_id=user["id"] if user else None)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Scan not found.") from exc
 
         return attach_explanations(analysis, lang)
 
     @application.get("/api/scans/{scan_id}/answers")
-    def answers(scan_id: int) -> list[dict[str, Any]]:
+    def answers(
+        request: Request,
+        scan_id: int,
+        device_ip: str | None = Query(None),
+        lang: Literal["ro", "en"] | None = Query(None),
+    ) -> list[dict[str, Any]]:
         try:
-            history.get_scan(scan_id)
+            user = _user(request)
+            history.get_scan(scan_id, user_id=user["id"] if user else None)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Scan not found.") from exc
-        return history.list_answers(scan_id)
+        return history.list_answers(scan_id, device_ip=device_ip, lang=lang, user_id=user["id"] if user else None)
 
     @application.get("/api/compare")
     def compare_scans(
@@ -177,13 +224,16 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.delete("/api/history")
-    def clear_history() -> dict[str, str]:
-        history.delete_history()
+    def clear_history(request: Request) -> dict[str, str]:
+        user = _user(request)
+        history.delete_history(user_id=user["id"] if user else None)
         return {"status": "ok"}
 
     @application.post("/api/scan", response_model=None)
     def live_scan(
-        request: ScanRequest, lang: Literal["ro", "en"] | None = Query(None),
+        request: ScanRequest,
+        http_request: Request,
+        lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any] | JSONResponse:
         try:
             target = request.target
@@ -229,7 +279,8 @@ def create_app(
             )
 
         explained = attach_explanations(analysis, lang)
-        scan_id = history.save_scan(analysis)
+        user = _user(http_request)
+        scan_id = history.save_scan(analysis, user_id=user["id"] if user else None)
         return {"scan_id": scan_id, **asdict(result), **explained}
 
     web_directory = Path(__file__).with_name("web")

@@ -71,11 +71,13 @@ uzuale de limbă greșită sau amestecată; nu este un detector lingvistic compl
 ## Recomandări și agent de remediere
 
 Fiecare recomandare are două butoane: „Arată-mi pașii” afișează pașii locali,
-iar „Repară cu agentul” trimite o cerere explicită la `POST /api/agent/remediate`.
-Backendul verifică dacă problema aparține scanării și cere `confirm: true`.
+iar „Repară cu agentul” cere mai întâi un plan la `POST /api/agent/plan`.
+Utilizatorul trebuie să confirme separat înainte ca UI-ul să trimită cererea
+explicită la `POST /api/agent/remediate`. Backendul verifică dacă problema
+aparține scanării și cere `confirm: true` pentru execuție.
 Nu rulează comenzi generate de LLM.
 
-În proiect nu există un serviciu de remediere automată. Scripturile din
+Nu există un executor extern de remediere configurat implicit. Scripturile din
 `scripts/macos` și `scripts/windows` sunt doar pentru laborator și nu sunt
 executate de acest endpoint. Conexiunea nouă cere `NETCHECK_REMEDIATION_URL`
 și, opțional, `NETCHECK_REMEDIATION_API_KEY` în mediul serverului. Agentul primește
@@ -83,6 +85,17 @@ JSON cu `scan_id`, `device_ip`, `finding_code`, `port`, `lang`; răspunde cu
 `{"status":"ok"}` la final sau `{"status":"accepted"}` dacă a pus cererea în coadă.
 Fără configurare, API-ul returnează 503 și UI-ul oferă pașii manuali.
 Nu a fost verificată execuția unui agent extern real.
+
+Pentru laboratorul Docker local, executorul sigur inclus poate fi activat fără
+un serviciu extern:
+
+```sh
+export NETCHECK_REMEDIATION_URL=local://lab
+python -m netcheck serve
+```
+
+Executorul verifică ținta față de `lab/network.json` și oprește numai serviciul
+Docker asociat finding-ului; codurile fără o remediere sigură sunt refuzate.
 ## Răspunsuri locale din scanare
 
 Fără furnizor configurat, `brief_answer` păstrează răspunsurile despre scor,

@@ -25,6 +25,7 @@ def _open_connection(path: str | Path | None = None) -> sqlite3.Connection:
         """
         CREATE TABLE IF NOT EXISTS scans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             file TEXT NOT NULL,
             source TEXT NOT NULL,
             scanned_at TEXT NOT NULL,
@@ -65,6 +66,9 @@ def _open_connection(path: str | Path | None = None) -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS ai_answers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
+            user_id INTEGER,
+            device_ip TEXT,
+            lang TEXT NOT NULL DEFAULT 'ro',
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
             mode TEXT NOT NULL,
@@ -72,6 +76,34 @@ def _open_connection(path: str | Path | None = None) -> sqlite3.Connection:
         );
         """
     )
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            expires_at TEXT NOT NULL
+        );
+        """
+    )
+    scan_columns = {row["name"] for row in connection.execute("PRAGMA table_info(scans)").fetchall()}
+    if "user_id" not in scan_columns:
+        connection.execute("ALTER TABLE scans ADD COLUMN user_id INTEGER")
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(ai_answers)").fetchall()
+    }
+    if "device_ip" not in columns:
+        connection.execute("ALTER TABLE ai_answers ADD COLUMN device_ip TEXT")
+    if "lang" not in columns:
+        connection.execute("ALTER TABLE ai_answers ADD COLUMN lang TEXT NOT NULL DEFAULT 'ro'")
+    if "user_id" not in columns:
+        connection.execute("ALTER TABLE ai_answers ADD COLUMN user_id INTEGER")
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
@@ -86,7 +118,7 @@ def _connect(path: str | Path | None = None):
         connection.close()
 
 
-def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None) -> int:
+def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None, user_id: int | None = None) -> int:
     """Save an analysis result and return its database identifier."""
 
     scanned_at = datetime.now(timezone.utc).isoformat()
@@ -94,11 +126,12 @@ def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None) -> in
         cursor = connection.execute(
             """
             INSERT INTO scans
-                (file, source, scanned_at, network_score, status, error_json,
+                (user_id, file, source, scanned_at, network_score, status, error_json,
                  top_risk_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id,
                 str(analysis["file"]),
                 str(analysis.get("source", analysis["file"])),
                 scanned_at,
@@ -164,7 +197,7 @@ def save_scan(analysis: dict[str, Any], db_path: str | Path | None = None) -> in
     return scan_id
 
 
-def list_scans(db_path: str | Path | None = None) -> list[dict[str, Any]]:
+def list_scans(db_path: str | Path | None = None, user_id: int | None = None) -> list[dict[str, Any]]:
     """List saved scans in insertion order (the UI uses the last as newest)."""
 
     with _connect(db_path) as connection:
@@ -172,8 +205,10 @@ def list_scans(db_path: str | Path | None = None) -> list[dict[str, Any]]:
             """
             SELECT id, file, source, network_score, scanned_at, status
             FROM scans
+            WHERE (? IS NULL OR user_id = ?)
             ORDER BY id
-            """
+            """,
+            (user_id, user_id),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -183,7 +218,10 @@ def save_answer(
     question: str,
     answer: str,
     mode: str,
+    device_ip: str | None = None,
+    lang: str = "ro",
     db_path: str | Path | None = None,
+    user_id: int | None = None,
 ) -> int:
     """Save an assistant answer linked to a scan and return its identifier."""
 
@@ -193,39 +231,46 @@ def save_answer(
         cursor = connection.execute(
             """
             INSERT INTO ai_answers
-                (scan_id, question, answer, mode, created_at)
-            VALUES (?, ?, ?, ?, ?)
+                (scan_id, user_id, device_ip, lang, question, answer, mode, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (scan_id, question, answer, mode, created_at),
+            (scan_id, user_id, device_ip, lang, question, answer, mode, created_at),
         )
         return int(cursor.lastrowid)
 
 
 def list_answers(
     scan_id: int,
+    device_ip: str | None = None,
+    lang: str | None = None,
     db_path: str | Path | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """List assistant answers for a scan in insertion order."""
 
     with _connect(db_path) as connection:
         rows = connection.execute(
             """
-            SELECT id, question, answer, mode, created_at
+            SELECT id, device_ip, lang, question, answer, mode, created_at
             FROM ai_answers
             WHERE scan_id = ?
+              AND (? IS NULL OR user_id = ?)
+              AND (? IS NULL OR device_ip = ?)
+              AND (? IS NULL OR lang = ?)
             ORDER BY id
             """,
-            (scan_id,),
+            (scan_id, user_id, user_id, device_ip, device_ip, lang, lang),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
-def get_scan(scan_id: int, db_path: str | Path | None = None) -> dict[str, Any]:
+def get_scan(scan_id: int, db_path: str | Path | None = None, user_id: int | None = None) -> dict[str, Any]:
     """Return one saved scan in the same shape as ``analyze_file``."""
 
     with _connect(db_path) as connection:
         scan = connection.execute(
-            "SELECT * FROM scans WHERE id = ?", (scan_id,)
+            "SELECT * FROM scans WHERE id = ? AND (? IS NULL OR user_id = ?)",
+            (scan_id, user_id, user_id),
         ).fetchone()
         if scan is None:
             raise KeyError(f"Scan {scan_id} was not found.")
@@ -370,12 +415,80 @@ def compare(
     }
 
 
-def delete_history(db_path: str | Path | None = None) -> None:
+def create_user(username: str, password_hash: str, db_path: str | Path | None = None) -> int:
+    created_at = datetime.now(timezone.utc).isoformat()
+    try:
+        with _connect(db_path) as connection:
+            cursor = connection.execute(
+                "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+                (username, password_hash, created_at),
+            )
+            return int(cursor.lastrowid)
+    except sqlite3.IntegrityError as exc:
+        raise ValueError("username_taken") from exc
+
+
+def claim_legacy_data(user_id: int, db_path: str | Path | None = None) -> None:
+    """Assign pre-account scans and answers to the first local account."""
+
+    with _connect(db_path) as connection:
+        has_user = connection.execute("SELECT 1 FROM scans WHERE user_id IS NOT NULL LIMIT 1").fetchone()
+        if has_user:
+            return
+        connection.execute("UPDATE scans SET user_id = ? WHERE user_id IS NULL", (user_id,))
+        connection.execute("UPDATE ai_answers SET user_id = ? WHERE user_id IS NULL", (user_id,))
+
+
+def get_user_by_username(username: str, db_path: str | Path | None = None) -> dict[str, Any] | None:
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            "SELECT id, username, password_hash FROM users WHERE username = ? COLLATE NOCASE",
+            (username,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def create_session(token: str, user_id: int, expires_at: str, db_path: str | Path | None = None) -> None:
+    with _connect(db_path) as connection:
+        connection.execute(
+            "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+            (token, user_id, expires_at),
+        )
+
+
+def get_session(token: str, db_path: str | Path | None = None) -> dict[str, Any] | None:
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT sessions.user_id, sessions.expires_at, users.username
+            FROM sessions JOIN users ON users.id = sessions.user_id
+            WHERE sessions.token = ?
+            """,
+            (token,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_session(token: str, db_path: str | Path | None = None) -> None:
+    with _connect(db_path) as connection:
+        connection.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def delete_history(db_path: str | Path | None = None, user_id: int | None = None) -> None:
     """Delete every saved scan and its related data."""
 
     with _connect(db_path) as connection:
-        connection.execute("DELETE FROM ai_answers")
-        connection.execute("DELETE FROM device_ports")
-        connection.execute("DELETE FROM devices")
-        connection.execute("DELETE FROM findings")
-        connection.execute("DELETE FROM scans")
+        if user_id is None:
+            connection.execute("DELETE FROM ai_answers")
+            connection.execute("DELETE FROM device_ports")
+            connection.execute("DELETE FROM devices")
+            connection.execute("DELETE FROM findings")
+            connection.execute("DELETE FROM scans")
+        else:
+            ids = [row["id"] for row in connection.execute("SELECT id FROM scans WHERE user_id = ?", (user_id,))]
+            for scan_id in ids:
+                connection.execute("DELETE FROM ai_answers WHERE scan_id = ?", (scan_id,))
+                connection.execute("DELETE FROM device_ports WHERE scan_id = ?", (scan_id,))
+                connection.execute("DELETE FROM devices WHERE scan_id = ?", (scan_id,))
+                connection.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
+                connection.execute("DELETE FROM scans WHERE id = ?", (scan_id,))

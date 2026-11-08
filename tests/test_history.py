@@ -69,6 +69,17 @@ def test_save_and_list_answers(monkeypatch, tmp_path):
     assert answers[0]["created_at"]
 
 
+def test_answers_are_filtered_by_device_and_language(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "DB_PATH", tmp_path / "netcheck.db")
+    scan_id = history.save_scan(analyze_file(VALIDATION_DIR / "V1_home_basic.xml"))
+
+    history.save_answer(scan_id, "Router?", "Răspuns", "fallback", "192.168.1.1", "ro")
+    history.save_answer(scan_id, "Ports?", "Answer", "ai", "192.168.1.2", "en")
+
+    answers = history.list_answers(scan_id, device_ip="192.168.1.1", lang="ro")
+    assert [answer["question"] for answer in answers] == ["Router?"]
+
+
 def test_history_closes_connections_on_success_and_failure(monkeypatch, tmp_path):
     connections = []
     original = sqlite3.connect

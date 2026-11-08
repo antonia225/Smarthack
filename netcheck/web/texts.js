@@ -54,7 +54,7 @@ const TEXTS = {
     /* chat */
     chatTitle: "Înțelegem împreună", chatAbout: "Despre: {name}", chatNetwork: "toată rețeaua",
     chatNotice: "Răspunsurile vin din documentație sau de la un asistent AI. Dacă e setat un furnizor extern, întrebarea și datele scanării (IP-uri, fără MAC și fără nume de dispozitiv) sunt trimise acolo. Nu scrie parole sau alte secrete.",
-    chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Scrie o întrebare", send: "Trimite", you: "Tu", assistant: "Asistent",
+    chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Întreabă despre scanare și rețea", send: "Trimite", you: "Tu", assistant: "Asistent",
     scanProposal: "Propunere de scanare", localNetwork: "rețeaua locală", confirmProposal: "Confirmă scanarea", scanAccepted: "Scanarea confirmată s-a terminat și a fost salvată în istoric.", scanRejected: "Scanarea a fost refuzată.",
     badgeAI: "Asistent AI", badgeDocs: "Din documentație", sources: "Surse", chatThinking: "Caut în documentație…", chatLogLabel: "Conversația",
     chatUnavailable: "Asistentul nu e disponibil acum. Iată ce știm din scanare:",
@@ -73,7 +73,7 @@ const TEXTS = {
     importedHeader: "Fișier importat: {name} · {date}", importAgain: "Importă alte fișiere", batchLabel: "Fișier afișat", importProgress: "Analizez fișierul {n} din {total}…",
     importResult: "{ok} importate, {bad} cu probleme.", badType: "{name}: nu este fișier .xml.", tooBig: "{name}: depășește 10 MB.",
     brokenFile: "{name}: fișierul e incomplet sau stricat și nu poate fi citit.", importFailed: "{name}: importul nu a reușit. Încearcă din nou.",
-    importStatic: "Aceasta este o imagine a fișierului, nu rețeaua de acum. Nu se actualizează și nu scanează.", importPrivacy: "Fișierele sunt analizate pe acest calculator. Adresele MAC sunt mascate.",
+    importPrivacy: "Fișierele sunt analizate pe acest calculator. Adresele MAC sunt mascate.",
     /* diverse */
     dateUnknown: "dată necunoscută"
   },
@@ -121,7 +121,7 @@ const TEXTS = {
     missingExplain: "There is no explanation available for this problem.", askAI: "Explain it · Learning Mode",
     chatTitle: "Let’s understand it together", chatAbout: "About: {name}", chatNetwork: "the whole network",
     chatNotice: "Answers come from documentation or from an AI assistant. If an outside provider is set up, your question and the scan data (IPs, without MAC addresses or device names) are sent to it. Do not type passwords or other secrets.",
-    chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Type a question", send: "Send", you: "You", assistant: "Assistant",
+    chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Ask about the scan and network", send: "Send", you: "You", assistant: "Assistant",
     scanProposal: "Scan proposal", localNetwork: "the local network", confirmProposal: "Confirm scan", scanAccepted: "The confirmed scan completed and was saved to history.", scanRejected: "The scan was refused.",
     badgeAI: "AI assistant", badgeDocs: "From documentation", sources: "Sources", chatThinking: "Searching the documentation…", chatLogLabel: "Conversation",
     chatUnavailable: "The assistant is not available right now. Here is what the scan tells us:",
@@ -138,7 +138,7 @@ const TEXTS = {
     importedHeader: "Imported file: {name} · {date}", importAgain: "Import more files", batchLabel: "File shown", importProgress: "Analyzing file {n} of {total}…",
     importResult: "{ok} imported, {bad} with problems.", badType: "{name}: not an .xml file.", tooBig: "{name}: larger than 10 MB.",
     brokenFile: "{name}: the file is incomplete or damaged and cannot be read.", importFailed: "{name}: the import did not work. Try again.",
-    importStatic: "This is a picture of the file, not your network right now. It does not update and does not scan.", importPrivacy: "Files are analyzed on this computer. MAC addresses are masked.",
+    importPrivacy: "Files are analyzed on this computer. MAC addresses are masked.",
     dateUnknown: "unknown date"
   }
 };

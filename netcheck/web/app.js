@@ -182,7 +182,7 @@ function createMenu(labelKey, onChange) {
 }
 
 /* ================= side panel: score ring + severity indicators ================= */
-function createSidePanel() {
+function createSidePanel({ showSeverity = true } = {}) {
   const root = el("div", "side");
   const scoreCard = el("section", "card score-card");
   scoreCard.append(el("h2", "card-title"));
@@ -207,7 +207,7 @@ function createSidePanel() {
     const lab = el("span", "lab"); const count = el("span", "num"); const bar = el("span", "bar"); const fill = el("i"); bar.append(fill); bar.setAttribute("aria-hidden", "true");
     li.append(ic, lab, count, bar); rows.append(li); rowParts[sev] = { li, lab, count, fill };
   }
-  root.append(scoreCard, sevCard);
+  root.append(scoreCard); if (showSeverity) root.append(sevCard);
   let lastSig = "";
   function update(scan) {
     const score = scan && scan.status === "ok" ? Number(scan.network_score) : 0;
@@ -240,13 +240,21 @@ function createSidePanel() {
 }
 
 /* ================= NetworkView: score, indicators, graph, vulnerabilities, inspector ================= */
-function createNetworkView({ allowAsk = true } = {}) {
-  const state = { scan: null, scanId: null, selectedIp: null, panel: "closed", size: { w: 0, h: 0 }, chat: { key: "", messages: [], pending: false } };
+function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
+  const isImport = variant === "import";
+  const state = { orient: "horizontal",  scan: null, scanId: null, selectedIp: null, panel: "closed", size: { w: 0, h: 0 }, chat: { key: "", messages: [], pending: false } };
   const root = el("div", "nv");
   /* graph */
   const graf = el("section", "card nv-graf"); graf.setAttribute("aria-labelledby", "g-title-" + (++menuCounter));
   const grafHead = el("div", "nv-graf-head"); const grafTitle = el("h2"); grafTitle.id = graf.getAttribute("aria-labelledby");
-  grafHead.append(grafTitle);
+  const grafHint = el("p", "muted"); grafHead.append(grafTitle, grafHint);
+  /* import view: horizontal layout, vertical only on small phones */
+  const phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 599px)") : { matches: false };
+  if (isImport) {
+    state.orient = phoneQuery.matches ? "vertical" : "horizontal";
+    if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", () => { state.orient = phoneQuery.matches ? "vertical" : "horizontal"; applyGraph(); });
+  }
+
   const graph = el("div", "graph");
   const viewPicker = el("div", "view-picker");
   viewPicker.setAttribute("role", "group");
@@ -327,27 +335,48 @@ function createNetworkView({ allowAsk = true } = {}) {
   graf.append(grafHead, grafToolbar, graph, deviceList);
   /* lateral: side panel + inspector overlay in the same grid cell */
   const lateral = el("div", "nv-lateral");
-  const side = createSidePanel();
+  const side = createSidePanel({ showSeverity: !isImport });
   const inspector = el("aside", "inspector"); inspector.dataset.open = "false"; inspector.setAttribute("aria-label", text("deviceDetails"));
-  side.root.querySelector(".sev-card").remove();
-  lateral.append(side.root, inspector);
+  if (isImport) { root.classList.add("nv-import"); lateral.append(side.root); } else lateral.append(side.root, inspector);
   /* vulnerabilities band */
   const vuln = el("section", "card nv-vuln"); const vulnTitleId = "v-title-" + (++menuCounter); vuln.setAttribute("aria-labelledby", vulnTitleId);
   const vulnHead = el("div", "nv-vuln-head"); const vulnTitle = el("h2"); vulnTitle.id = vulnTitleId; const vulnCount = el("p", "muted");
   vulnHead.append(vulnTitle, vulnCount);
   const vlist = el("ul", "vlist"); const clean = el("div", "clean"); clean.hidden = true;
   vuln.append(vulnHead, vlist, clean);
-  root.append(graf, lateral, vuln);
+  root.append(graf, lateral, vuln); if (isImport) root.append(inspector);
 
   const nodeCache = new Map(); const rowCache = new Map(); const srCache = new Map(); let genericHub = null;
 
   /* ---- graph ---- */
+  let hubAt = { x: 0, y: 0 };
+  /* import view: hub on one side, devices in a grid growing away from it (horizontal = left to right) */
+  function orientedPositions(hub, others, pos) {
+    const { w, h } = state.size, horizontal = state.orient === "horizontal", n = others.length;
+    const padX = 70, padY = 56, cell = horizontal ? 96 : 150;
+    const hubX = horizontal ? padX : w / 2, hubY = horizontal ? h / 2 : padY;
+    hubAt = { x: hubX, y: hubY };
+    if (hub) pos.set(hub.ip, { x: hubX, y: hubY, r: 40, hub: true });
+    const crossLen = horizontal ? h - 2 * padY : w - 2 * padX;
+    const perLine = Math.max(1, Math.floor(crossLen / cell) + 1), lines = Math.max(1, Math.ceil(n / perLine));
+    const alongStart = (horizontal ? hubX : hubY) + 150, alongEnd = horizontal ? w - padX : h - padY - 40;
+    const alongStep = lines > 1 ? Math.max(130, (alongEnd - alongStart) / (lines - 1)) : 0;
+    others.forEach((device, i) => {
+      const line = Math.floor(i / perLine), idx = i % perLine, inLine = Math.min(perLine, n - line * perLine);
+      const along = alongStart + line * alongStep;
+      const cross = (horizontal ? padY : padX) + (inLine === 1 ? crossLen / 2 : (idx / (inLine - 1)) * crossLen);
+      pos.set(device.ip, horizontal ? { x: along, y: cross, r: 28, hub: false } : { x: cross, y: along, r: 28, hub: false });
+    });
+    return pos;
+  }
   function positions(devices) {
     const { w, h } = state.size; const pos = new Map();
     if (!w || !h) return pos;
     const cx = w / 2, cy = Math.max(40, (h - 24) / 2);
     const hub = devices.find((d) => d.device_type === "router");
     const others = devices.filter((d) => d !== hub).sort((a, b) => ipNumber(a.ip) - ipNumber(b.ip));
+    if (isImport) return orientedPositions(hub, others, pos);
+    hubAt = { x: cx, y: cy };
     if (hub) pos.set(hub.ip, { x: cx, y: cy, r: 40, hub: true });
     const rx = Math.max(48, w / 2 - 84), ry = Math.max(24, h / 2 - 68);
     const n = others.length;
@@ -545,6 +574,11 @@ function createNetworkView({ allowAsk = true } = {}) {
     if (allowAsk) { const ask = button(text("askAI"), "primary", "i-chat"); ask.addEventListener("click", openChat); const row = el("div", "insp-actions"); row.append(ask); body.append(row); }
     inspector.replaceChildren(inspectorHead(text("deviceDetails"), () => closePanel(true)), body);
   }
+  function renderEmpty() {
+    inspector.setAttribute("aria-label", text("deviceDetails"));
+    const box = el("div", "insp-empty"); box.append(icon("i-network", "big"), el("p", "muted", text("noDeviceSelected")));
+    inspector.replaceChildren(box);
+  }
   function chatKeyNow() { return [state.scanId, state.selectedIp, lang].join("|"); }
   function renderChat() {
     if (state.chat.key !== chatKeyNow()) state.chat = { key: chatKeyNow(), messages: [], pending: false };
@@ -597,7 +631,7 @@ function createNetworkView({ allowAsk = true } = {}) {
           role: "assistant",
           text: r.data.answer,
           sources: r.data.sources,
-          mode: r.data.mode === "ai" ? "ai" : "docs",
+          mode: r.data.mode === "ai" ? "ai" : r.data.mode === "refused" ? "" : "docs",
           action: r.data.action
         };
       } catch (error) { /* offline: fall through to the local explanation */ }
@@ -685,6 +719,7 @@ function createNetworkView({ allowAsk = true } = {}) {
     if (scanId !== state.scanId) resetMap();
     state.scan = scan; state.scanId = scanId;
     if (state.selectedIp && !deviceOf(state.selectedIp)) { state.selectedIp = null; if (state.panel !== "closed") showPanel("closed"); }
+    if (isImport && state.panel === "closed") renderEmpty();
     side.update(scan); applyGraph(); applyList(); refreshSelection();
     if (state.panel === "detail") { const sig = detailSig(); if (sig !== state.detailSig) { state.detailSig = sig; renderDetail(); } }
   }
@@ -694,6 +729,7 @@ function createNetworkView({ allowAsk = true } = {}) {
     side.update(state.scan); applyGraph(); applyList(); refreshSelection();
     if (state.panel === "detail") renderDetail(); else if (state.panel === "chat") renderChat(); else renderUnselected();
   }
+  if (isImport) showPanel("closed");
   return { root, update, rerender, onEscape, get selectedIp() { return state.selectedIp; }, get panel() { return state.panel; }, close: () => closePanel(false) };
 }
 
@@ -1046,7 +1082,7 @@ function createHistoryPage() {
   };
 }
 
-/* ---- Import: a batch of files, static, no history ---- */
+/* ---- Import: a batch of files, static; saved locally with source "import", hidden from Home and History ---- */
 function createImportPage() {
   const root = $("page-import");
   const head = pageHeader(root, "importTitle", "import-title");
@@ -1056,25 +1092,25 @@ function createImportPage() {
   const input = el("input"); input.type = "file"; input.accept = ".xml,application/xml,text/xml"; input.multiple = true; input.hidden = true;
   const drop = el("div", "drop"); const results = el("div", "results"); results.setAttribute("aria-live", "polite");
   const list = el("ul", "file-list"); list.setAttribute("aria-label", text("importTitle"));
-  const staticNote = el("p", "notice"); staticNote.hidden = true;
-  const view = createNetworkView(); view.root.hidden = true;
-  root.append(input, results, drop, list, staticNote, view.root);
+  const view = createNetworkView({ variant: "import" }); view.root.hidden = true;
+  root.append(input, results, drop, list, view.root);
   const s = { items: [], current: -1, mode: "list", errors: [], busy: "", timer: 0 };
 
   function clearErrors() { clearTimeout(s.timer); s.errors = []; paint(); }
   function paint() {
-    head.h1.textContent = text("importTitle");
     setButtonLabel(againBtn, text("importAgain")); setButtonLabel(backBtn, text("backToFiles"));
     const detail = s.mode === "detail" && s.items[s.current];
     const item = s.items[s.current];
-    head.sub.textContent = detail ? text("importedHeader", { name: item.name, date: fmtDate(item.date) }) : "";
+    head.h1.textContent = detail ? item.name : text("importTitle");
+    head.sub.textContent = "";
+    head.head.classList.toggle("swap", Boolean(detail));
+    root.classList.toggle("import-detail", Boolean(detail));
     const empty = !s.items.length;
-    drop.hidden = !empty; list.hidden = empty || Boolean(detail); view.root.hidden = !detail; staticNote.hidden = !detail;
+    drop.hidden = !empty; list.hidden = empty || Boolean(detail); view.root.hidden = !detail;
     againBtn.hidden = empty || Boolean(detail); backBtn.hidden = !detail;
     drop.replaceChildren(icon("i-upload", "big"), el("h2", "", text("dropTitle")), el("p", "muted", text("dropNote")));
     const choose = button(text("chooseFiles"), "primary", "i-file"); choose.addEventListener("click", () => input.click()); drop.append(choose);
     drop.append(el("p", "muted", text("importPrivacy")));
-    staticNote.replaceChildren(icon("i-sev-info"), el("span", "", text("importStatic")));
     list.replaceChildren(...s.items.map((it, i) => {
       const li = el("li"); const card = el("button", "file-card"); card.type = "button"; card.dataset.index = String(i);
       const score = it.scan && it.scan.network_score;
@@ -1109,6 +1145,7 @@ function createImportPage() {
       if (file.size > MAX_IMPORT_BYTES) { s.errors.push({ key: "tooBig", name: file.name }); continue; }
       try {
         const r = await api("/api/import?filename=" + encodeURIComponent(file.name), { method: "POST", headers: { "Content-Type": "application/xml" }, body: await file.text() });
+        if (r.status === 413) { s.errors.push({ key: "tooBig", name: file.name }); continue; }
         if (!r.ok || !r.data) { s.errors.push({ key: "importFailed", name: file.name }); continue; }
         if (r.data.status !== "ok") { s.errors.push({ key: "brokenFile", name: file.name }); continue; }
         added.push({ id: r.data.scan_id, name: file.name, date: new Date().toISOString(), scan: r.data });

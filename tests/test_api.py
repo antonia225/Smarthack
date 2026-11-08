@@ -184,3 +184,11 @@ def test_import_client_filename_is_only_display_metadata(monkeypatch, filename, 
     assert writes and all(not path.exists() for path in writes)
     saved = client.get(f"/api/scans/{result['scan_id']}").json()
     assert saved['file'] == display_name
+
+
+def test_import_rejects_oversized_body_with_413(monkeypatch, tmp_path):
+    monkeypatch.setattr(history, "DB_PATH", tmp_path / "t.db")
+    client = TestClient(api.create_app())
+    big = b"<a>" + b"x" * (10 * 1024 * 1024)
+    assert client.post("/api/import", content=big).status_code == 413
+    assert client.post("/api/import", content=iter([b"x" * 1024 * 1024] * 11)).status_code == 413

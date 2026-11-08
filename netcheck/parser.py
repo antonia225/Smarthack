@@ -10,7 +10,7 @@ from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 
 
-MAX_SCAN_SIZE = 10 * 1024 * 1024
+from netcheck.scan_xml import MAX_XML_BYTES as MAX_SCAN_SIZE
 
 
 @dataclass

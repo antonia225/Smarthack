@@ -122,7 +122,7 @@ def _unknown_device_finding(device: Device, open_ports: list[Port]) -> Finding |
         device,
         None,
         "UNKNOWN_DEVICE",
-        "info",
+        "low",
         evidence="unknown device",
     )
 

@@ -291,17 +291,16 @@ HTTP 503 with a Romanian/English error, without saving a partial import.
 
 ### Service identification and score limits
 
-Nmap names obtained only from its port table (`method="table"`) are displayed
-as `unknown` and do not trigger service-specific risk rules. Probed names
-require confidence of at least 7/10. Explicit AirTunes/AirPlay and laboratory
-simulator response fingerprints override port-table guesses. Older imported
-XML without identification metadata retains its supplied service names for
-compatibility; its evidence cannot be independently verified.
+Rules use the service name Nmap reports, whatever `method` and `conf` it
+used to find it. Names Nmap inferred from the port number (`method="table"`,
+typical for UDP services that did not answer a probe) still trigger the
+official rules. Response banners and fingerprints do not rename a service.
 
 RTSP alone does not identify a camera. Camera classification requires a known
 camera vendor or a camera product accompanying an open RTSP service. An RTSP
 finding describes a streaming service, not proof of unauthenticated access.
-Missing device identity is informational and costs zero points. The score
+A device with open ports but no hostname or vendor yields `UNKNOWN_DEVICE`
+(low, 5 points), as the brief defines it. The score
 summarizes supported findings; a high score does not establish that unknown
 listeners or the network are safe.
 

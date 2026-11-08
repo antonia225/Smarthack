@@ -290,15 +290,15 @@
     }
   },
   "UNKNOWN_DEVICE": {
-    "severity": "info",
-    "points": 0,
+    "severity": "low",
+    "points": 5,
     "title": {
       "ro": "Dispozitiv care poate fi necunoscut",
       "en": "Device that may be unfamiliar"
     },
     "explain": {
-      "ro": "Scanarea nu a găsit un nume sau un producător pentru acest dispozitiv. Lipsa identificării nu dovedește un risc și nu scade scorul.",
-      "en": "The scan did not find a name or manufacturer for this device. Missing identification does not establish a risk and does not reduce the score."
+      "ro": "Scanarea nu a găsit un nume sau un producător pentru acest dispozitiv. Lipsa identificării nu dovedește singură un risc; regula oficială scade totuși 5 puncte din scor.",
+      "en": "The scan did not find a name or manufacturer for this device. Missing identification does not by itself establish a risk; the official rule still deducts 5 points from the score."
     },
     "fix": {
       "ro": [

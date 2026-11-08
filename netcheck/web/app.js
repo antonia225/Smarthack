@@ -247,24 +247,100 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   /* graph */
   const graf = el("section", "card nv-graf"); graf.setAttribute("aria-labelledby", "g-title-" + (++menuCounter));
   const grafHead = el("div", "nv-graf-head"); const grafTitle = el("h2"); grafTitle.id = graf.getAttribute("aria-labelledby");
-  const grafHint = el("p", "muted"); grafHead.append(grafTitle, grafHint);
+  grafHead.append(grafTitle);
   /* import view: horizontal layout, vertical only on small phones */
   const phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 599px)") : { matches: false };
   if (isImport) {
     state.orient = phoneQuery.matches ? "vertical" : "horizontal";
     if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", () => { state.orient = phoneQuery.matches ? "vertical" : "horizontal"; applyGraph(); });
   }
+
+
   const graph = el("div", "graph");
+  const viewPicker = el("div", "view-picker");
+  viewPicker.setAttribute("role", "group");
+  const mapButton = button("", "view-opt", "i-network");
+  const listButton = button("", "view-opt", "i-file");
+  viewPicker.append(mapButton, listButton);
+  grafHead.append(viewPicker);
+  const deviceList = el("ul", "device-list"); deviceList.hidden = true;
+  let listMode = false;
+  function chooseView(next) {
+    listMode = next;
+    graph.hidden = listMode; deviceList.hidden = !listMode;
+    mapTools.hidden = listMode;
+    mapButton.setAttribute("aria-pressed", String(!listMode));
+    listButton.setAttribute("aria-pressed", String(listMode));
+  }
+  mapButton.addEventListener("click", () => chooseView(false));
+  listButton.addEventListener("click", () => chooseView(true));
   const svg = svgEl("svg", "map"); svg.setAttribute("role", "group");
   const edgesG = svgEl("g"); const nodesG = svgEl("g"); svg.append(edgesG, nodesG);
+  const camera = { zoom: 1, x: 0, y: 0 };
+  function paintCamera() {
+    const { w, h } = state.size;
+    svg.setAttribute("viewBox", [camera.x, camera.y, w / camera.zoom, h / camera.zoom].join(" "));
+    resetZoom.textContent = Math.round(camera.zoom * 100) + "%";
+  }
+  function zoomMap(factor) {
+    const previous = camera.zoom;
+    camera.zoom = Math.max(.5, Math.min(3, camera.zoom * factor));
+    camera.x += state.size.w / previous / 2 - state.size.w / camera.zoom / 2;
+    camera.y += state.size.h / previous / 2 - state.size.h / camera.zoom / 2;
+    paintCamera();
+  }
+  function resetMap() { camera.zoom = 1; camera.x = camera.y = 0; paintCamera(); }
+  const mapTools = el("div", "map-tools");
+  const zoomOut = button("−", "map-control"); const zoomIn = button("+", "map-control");
+  const resetZoom = el("button", "map-control", "100%"); resetZoom.type = "button";
+  zoomOut.addEventListener("click", () => zoomMap(1 / 1.2));
+  zoomIn.addEventListener("click", () => zoomMap(1.2)); resetZoom.addEventListener("click", resetMap);
+  mapTools.append(zoomOut, resetZoom, zoomIn);
+  chooseView(false);
+  graph.tabIndex = 0;
+  graph.addEventListener("keydown", (event) => {
+    if (event.target !== graph) return;
+    if (event.key === "+" || event.key === "=") zoomMap(1.2);
+    else if (event.key === "-") zoomMap(1 / 1.2);
+    else if (event.key === "0") resetMap();
+    else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      camera.x += ({ArrowLeft:-30, ArrowRight:30}[event.key] || 0) / camera.zoom;
+      camera.y += ({ArrowUp:-30, ArrowDown:30}[event.key] || 0) / camera.zoom;
+      paintCamera();
+    } else return;
+    event.preventDefault();
+  });
+  graph.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault(); zoomMap(event.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+  let drag = null;
+  svg.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.target.closest(".node")) return;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: camera.x, startY: camera.y };
+    svg.setPointerCapture(event.pointerId); graph.classList.add("dragging");
+  });
+  svg.addEventListener("pointermove", (event) => {
+    if (!drag || drag.id !== event.pointerId) return;
+    camera.x = drag.startX - (event.clientX - drag.x) / camera.zoom;
+    camera.y = drag.startY - (event.clientY - drag.y) / camera.zoom; paintCamera();
+  });
+  function stopDrag() { drag = null; graph.classList.remove("dragging"); }
+  svg.addEventListener("pointerup", stopDrag); svg.addEventListener("pointercancel", stopDrag);
+  svg.addEventListener("lostpointercapture", stopDrag);
   const none = el("p", "none muted"); none.hidden = true;
   const srList = el("ul", "sr-only");
-  graph.append(svg, none, srList); graf.append(grafHead, graph);
+  graph.append(svg, none, srList);
+  const grafToolbar = el("div", "graph-toolbar");
+  const graphCount = el("p", "muted"); grafToolbar.append(graphCount, mapTools);
+  graf.append(grafHead, grafToolbar, graph, deviceList);
   /* lateral: side panel + inspector overlay in the same grid cell */
   const lateral = el("div", "nv-lateral");
   const side = createSidePanel({ showSeverity: !isImport });
   const inspector = el("aside", "inspector"); inspector.dataset.open = "false"; inspector.setAttribute("aria-label", text("deviceDetails"));
+  side.root.querySelector(".sev-card")?.remove();
   if (isImport) { root.classList.add("nv-import"); lateral.append(side.root); } else lateral.append(side.root, inspector);
+
   /* vulnerabilities band */
   const vuln = el("section", "card nv-vuln"); const vulnTitleId = "v-title-" + (++menuCounter); vuln.setAttribute("aria-labelledby", vulnTitleId);
   const vulnHead = el("div", "nv-vuln-head"); const vulnTitle = el("h2"); vulnTitle.id = vulnTitleId; const vulnCount = el("p", "muted");
@@ -299,34 +375,51 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   function positions(devices) {
     const { w, h } = state.size; const pos = new Map();
     if (!w || !h) return pos;
-    const cx = w / 2, cy = h / 2;
+    const cx = w / 2, cy = Math.max(40, (h - 24) / 2);
     const hub = devices.find((d) => d.device_type === "router");
     const others = devices.filter((d) => d !== hub).sort((a, b) => ipNumber(a.ip) - ipNumber(b.ip));
     if (isImport) return orientedPositions(hub, others, pos);
     hubAt = { x: cx, y: cy };
     if (hub) pos.set(hub.ip, { x: cx, y: cy, r: 40, hub: true });
-    const rx = Math.max(100, w / 2 - 80), ry = Math.max(122, h / 2 - 70);
+    const rx = Math.max(48, w / 2 - 84), ry = Math.max(24, h / 2 - 68);
     const n = others.length;
     const outer = n <= 10 ? n : Math.ceil(n * 0.62), inner = n - outer;
     others.forEach((device, i) => {
       const onOuter = i < outer, count = onOuter ? outer : inner, idx = onOuter ? i : i - outer;
       const scale = onOuter ? 1 : 0.55;
-      const angle = -Math.PI / 2 + (idx / Math.max(1, count)) * Math.PI * 2 + (onOuter ? 0 : Math.PI / Math.max(1, count));
-      pos.set(device.ip, { x: cx + Math.cos(angle) * rx * scale, y: cy + Math.sin(angle) * ry * scale, r: 28, hub: false });
+      // Small home networks use the corners, leaving the router and its labels clear.
+      const angle = n <= 4 ? -3 * Math.PI / 4 + idx * Math.PI / 2 : -3 * Math.PI / 4 + (idx / Math.max(1, count)) * Math.PI * 2 + (onOuter ? 0 : Math.PI / Math.max(1, count));
+      const y = n <= 4 ? (Math.sin(angle) < 0 ? 70 : Math.max(70, h - 76)) : Math.max(70, Math.min(h - 76, cy + Math.sin(angle) * ry * scale));
+      pos.set(device.ip, { x: cx + Math.cos(angle) * rx * scale, y, r: 28, hub: false, labelAbove: y < cy });
     });
     return pos;
   }
   function applyGraph() {
     const scan = state.scan, devices = (scan && scan.devices) || [];
-    grafTitle.textContent = text("networkTitle"); grafHint.textContent = isImport ? "" : text("networkHint");
-    grafHint.hidden = isImport;
+    zoomIn.setAttribute("aria-label", text("zoomIn")); zoomOut.setAttribute("aria-label", text("zoomOut"));
+    resetZoom.setAttribute("aria-label", text("resetMap")); graph.setAttribute("aria-label", text("mapNavigation"));
+    graphCount.textContent = text("deviceCount", { n: devices.length });
+    viewPicker.setAttribute("aria-label", text("deviceView"));
+    setButtonLabel(mapButton, text("mapView")); setButtonLabel(listButton, text("listView"));
+    deviceList.setAttribute("aria-label", text("deviceListLabel"));
+    deviceList.replaceChildren(...devices.map((device) => {
+      const li = el("li"); const b = button("", "device-item", TYPE_ICON[device.device_type] || TYPE_ICON.unknown);
+      b.dataset.ip = device.ip;
+      const severity = highestSeverity(scan, device.ip);
+      const copy = b.querySelector("span");
+      copy.append(el("strong", "", typeLabel(device)), el("span", "muted", device.ip));
+      const badge = el("span", "device-severity sev-" + severity);
+      badge.append(icon(SEV_ICON[severity]), el("span", "", severity === "none" ? text("noFindingsShort") : sevLabel(severity)));
+      b.append(badge); b.addEventListener("click", () => selectDevice(device.ip)); li.append(b); return li;
+    }));
+    grafTitle.textContent = text("networkTitle");
     svg.setAttribute("aria-label", text("networkTitle"));
     none.hidden = devices.length > 0; none.textContent = text("noDevices");
     const pos = positions(devices);
     const hasRouter = devices.some((d) => d.device_type === "router");
     reconcile(nodesG, devices.map((device) => {
       const sev = highestSeverity(scan, device.ip), p = pos.get(device.ip) || { x: 0, y: 0, r: 28, hub: false };
-      return { key: device.ip, sig: [lang, device.device_type, sev, p.hub].join("|"), create: () => buildNode(device.ip), update: (g) => updateNode(g, device, sev, p.hub) };
+      return { key: device.ip, sig: [lang, device.device_type, sev, p.hub, p.labelAbove].join("|"), create: () => buildNode(device.ip), update: (g) => updateNode(g, device, sev, p.hub, p.labelAbove) };
     }), nodeCache);
     for (const [ip, g] of nodeCache) {
       const p = pos.get(ip); if (!p) continue;
@@ -336,12 +429,12 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     /* generic hub when there is no router in the scan */
     if (!hasRouter && devices.length) {
       if (!genericHub) { genericHub = svgEl("g", "node hub generic"); genericHub.setAttribute("role", "img"); buildHubGlyph(genericHub); svg.insertBefore(genericHub, nodesG); }
-      genericHub.setAttribute("transform", "translate(" + Math.round(hubAt.x) + "," + Math.round(hubAt.y) + ")");
+      genericHub.setAttribute("transform", "translate(" + Math.round(state.size.w / 2) + "," + Math.round(Math.max(40, (state.size.h - 24) / 2)) + ")");
       genericHub.setAttribute("aria-label", text("networkNode")); genericHub.querySelector("text").textContent = text("networkNode");
     } else if (genericHub) { genericHub.remove(); genericHub = null; }
     /* curved links from the centre to every other node */
     edgesG.replaceChildren();
-    const cx = hubAt.x, cy = hubAt.y;
+    const cx = state.size.w / 2, cy = Math.max(40, (state.size.h - 24) / 2);
     for (const device of devices) {
       const p = pos.get(device.ip); if (!p || p.hub) continue;
       const mx = (cx + p.x) / 2, my = (cy + p.y) / 2, dx = p.x - cx, dy = p.y - cy;
@@ -376,7 +469,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     g.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectDevice(ip); } });
     return g;
   }
-  function updateNode(g, device, sev, hub) {
+  function updateNode(g, device, sev, hub, labelAbove) {
     const { focus, disc, glyph, badge, badgeIcon, t1, t2 } = g.__parts;
     const r = hub ? 40 : 28, g2 = hub ? 22 : 15;
     g.setAttribute("class", "node sev-" + sev + (hub ? " hub" : ""));
@@ -386,7 +479,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     badge.setAttribute("transform", "translate(" + Math.round(r * 0.72) + "," + -Math.round(r * 0.72) + ")");
     badgeIcon.setAttribute("href", "#" + SEV_ICON[sev]);
     for (const [k, v] of [["x", -9], ["y", -9], ["width", 18], ["height", 18]]) badgeIcon.setAttribute(k, String(v));
-    t1.setAttribute("y", String(r + 24)); t2.setAttribute("y", String(r + 44));
+    t1.setAttribute("y", String(labelAbove ? -r - 22 : r + 24)); t2.setAttribute("y", String(labelAbove ? -r - 2 : r + 44));
     t1.textContent = typeLabel(device) + " · ." + String(device.ip).split(".").pop();
     t2.textContent = sev === "none" ? text("noFindingsShort") : sevLabel(sev);
     g.setAttribute("aria-label", nodeAria(device));
@@ -422,7 +515,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     b.setAttribute("aria-label", text("rowAria", { title: findingTitle(finding), where: whereOf(finding), severity: sevLabel(finding.severity) }));
     if (priority) {
       const body = el("span", "body");
-      const kick = el("span", "kick"); kick.append(icon("i-alert"), el("span", "", text("priority")));
+      const kick = el("span", "kick"); kick.append(icon(SEV_ICON[finding.severity]), el("span", "", text("priority") + " · " + sevLabel(finding.severity)));
       const stepLine = el("span", "step"); stepLine.append(el("b", "", text("firstStep") + ": "), document.createTextNode(step || text("noFix")));
       body.append(kick, el("span", "t", findingTitle(finding)), stepLine, el("span", "w", whereOf(finding)));
       b.replaceChildren(sq, body, icon("i-chevron", "go"));
@@ -437,14 +530,16 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   }
 
   /* ---- inspector ---- */
-  const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 899px)") : { matches: false, addEventListener() {} };
   function applyInert() {
-    const modal = !isImport && narrowQuery.matches && state.panel !== "closed";
-    for (const part of [graf, side.root, vuln]) {
-      if (modal) { part.setAttribute("inert", ""); part.setAttribute("aria-hidden", "true"); } else { part.removeAttribute("inert"); part.removeAttribute("aria-hidden"); }
-    }
+    inspector.setAttribute("role", "complementary");
+    inspector.removeAttribute("aria-modal");
   }
-  if (narrowQuery.addEventListener) narrowQuery.addEventListener("change", applyInert);
+  function renderUnselected() {
+    const body = el("div", "unselected-device");
+    body.append(icon("i-network"), el("h2", "", text("noDeviceSelected")), el("p", "muted", text("selectDeviceHint")));
+    inspector.replaceChildren(body);
+  }
+  renderUnselected();
   const deviceOf = (ip) => ((state.scan && state.scan.devices) || []).find((d) => d.ip === ip) || null;
 
   function inspectorHead(titleText, onBack, backLabel) {
@@ -472,6 +567,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
     if (!mine.length) body.append(el("p", "muted", text("noDeviceFindings")));
     for (const finding of mine) {
       const card = el("article", "dfind sev-" + finding.severity);
+      card.append(el("p", "finding-severity", text("severityLabel", { level: sevLabel(finding.severity) })));
       const h4 = el("h4"); h4.append(icon(SEV_ICON[finding.severity]), el("span", "", findingTitle(finding) + (finding.port ? " · " + finding.port : "")));
       card.append(h4, el("p", "", localized(finding.explain) || text("missingExplain")));
       const steps = localized(finding.fix) || [];
@@ -591,18 +687,19 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   function focusPanel() { const h = inspector.querySelector("[data-focus]"); if (h) h.focus({ preventScroll: true }); }
   function showPanel(kind) {
     state.panel = kind;
-    if (kind === "detail") renderDetail(); else if (kind === "chat") renderChat(); else if (isImport) renderEmpty();
-    inspector.dataset.open = String(isImport || kind !== "closed");
+    if (kind === "detail") renderDetail(); else if (kind === "chat") renderChat(); else renderUnselected();
+    inspector.dataset.open = String(kind !== "closed");
     applyInert();
   }
   function openDetail() { showPanel("detail"); focusPanel(); }
   function openChat() { showPanel("chat"); focusPanel(); }
   function closePanel(returnFocus) {
     const ip = state.selectedIp;
+    state.selectedIp = null;
     showPanel("closed");
-    if (isImport) { state.selectedIp = null; refreshSelection(); }
+    refreshSelection();
     if (!returnFocus) return;
-    const target = nodeCache.get(ip) || [...vlist.querySelectorAll("li > button")].find((b) => b.dataset.ip === ip);
+    const target = listMode ? [...deviceList.querySelectorAll("button")].find((b) => b.dataset.ip === ip) : nodeCache.get(ip) || [...vlist.querySelectorAll("li > button")].find((b) => b.dataset.ip === ip);
     if (target) target.focus({ preventScroll: true });
   }
   function selectDevice(ip) { state.selectedIp = ip; refreshSelection(); openDetail(); }
@@ -617,11 +714,12 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       const box = entries[0].contentRect;
       const w = Math.round(box.width), h = Math.round(box.height);
       if (w === state.size.w && h === state.size.h) return;
-      state.size = { w, h }; svg.setAttribute("viewBox", "0 0 " + w + " " + h); applyGraph();
+      state.size = { w, h }; paintCamera(); applyGraph();
     }).observe(graph);
   }
 
   function update(scan, scanId) {
+    if (scanId !== state.scanId) resetMap();
     state.scan = scan; state.scanId = scanId;
     if (state.selectedIp && !deviceOf(state.selectedIp)) { state.selectedIp = null; if (state.panel !== "closed") showPanel("closed"); }
     if (isImport && state.panel === "closed") renderEmpty();
@@ -632,7 +730,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   /* A language change re-renders everything that has text. */
   function rerender() {
     side.update(state.scan); applyGraph(); applyList(); refreshSelection();
-    if (state.panel === "detail") renderDetail(); else if (state.panel === "chat") renderChat(); else if (isImport) renderEmpty();
+    if (state.panel === "detail") renderDetail(); else if (state.panel === "chat") renderChat(); else renderUnselected();
   }
   if (isImport) showPanel("closed");
   return { root, update, rerender, onEscape, get selectedIp() { return state.selectedIp; }, get panel() { return state.panel; }, close: () => closePanel(false) };
@@ -642,7 +740,9 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
 function pageHeader(page, titleKey, titleId) {
   const head = el("header", "page-head");
   const left = el("div"); const h1 = el("h1"); h1.id = titleId; h1.tabIndex = -1; h1.dataset.titleKey = titleKey; h1.textContent = text(titleKey);
-  const sub = el("p", "page-sub"); left.append(h1, sub);
+  const sub = el("p", "page-sub");
+  const kicker = el("p", "eyebrow"); kicker.dataset.i18n = "section" + titleKey; kicker.textContent = text(kicker.dataset.i18n);
+  left.append(kicker, h1, sub);
   const actions = el("div", "actions");
   head.append(left, actions); page.append(head);
   return { head, h1, sub, actions };
@@ -798,6 +898,7 @@ function createHomePage() {
   return {
     root, titleEl: head.h1,
     activate() { poll(); },
+    deactivate() { view.close(); },
     poll, rerender() { paintState(); view.rerender(); },
     reset() { s.scan = null; s.scanId = null; s.loaded = true; view.update(null, null); paintState(); },
     onEscape: () => view.onEscape(), init() { paintState(); poll(); },
@@ -810,6 +911,7 @@ function createHistoryPage() {
   const head = pageHeader(root, "histTitle", "history-title");
   const exportBtn = button(text("exportBtn"), "", "i-share"); const clearBtn = button(text("clearHistory"), "danger", "i-trash");
   head.actions.append(exportBtn, clearBtn);
+  const historyStatus = el("div", "notice"); historyStatus.hidden = true; historyStatus.setAttribute("role", "status"); root.append(historyStatus);
   const body = el("div"); body.style.display = "contents";
   root.append(body);
   const s = { scans: [], selectedId: null, detail: null, detailCache: new Map(), loaded: false, cmpBefore: null, cmpAfter: null };
@@ -844,7 +946,7 @@ function createHistoryPage() {
     chartCard.replaceChildren(el("h2", "card-title", text("chartTitle")));
     const valid = validScans().slice(-20);
     if (valid.length < 2) { chartCard.append(el("p", "muted", text("chartNeedMore"))); chartCard.lastChild.style.marginTop = "12px"; return; }
-    const W = 640, H = 220, left = 44, right = 20, top = 28, bottom = 24;
+    const W = Math.max(160, chartCard.clientWidth - 80), H = 220, left = 44, right = 20, top = 28, bottom = 24;
     const x = (i) => Math.round(left + ((W - left - right) * i) / (valid.length - 1));
     const y = (score) => Math.round(top + ((100 - score) * (H - top - bottom)) / 100);
     const svg = svgEl("svg"); svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("role", "img");
@@ -927,7 +1029,11 @@ function createHistoryPage() {
   async function refresh() {
     let r;
     try { r = await api("/api/scans"); } catch (error) { r = { ok: false }; }
-    if (!r.ok || !Array.isArray(r.data)) return;
+    if (!r.ok || !Array.isArray(r.data)) {
+      historyStatus.hidden = false; historyStatus.replaceChildren(icon("i-alert"), el("span", "", text("historyUnavailable")));
+      return;
+    }
+    historyStatus.hidden = true;
     s.scans = r.data.filter((x) => HOME_SOURCE === null || x.source === HOME_SOURCE);
     s.loaded = true; paintAll();
     const valid = validScans();
@@ -1062,6 +1168,7 @@ function createImportPage() {
   return {
     root, titleEl: head.h1,
     activate() {}, rerender() { paint(); if (s.mode === "detail") view.rerender(); },
+    deactivate() { view.close(); },
     reset() { clearTimeout(s.timer); s.items = []; s.current = -1; s.mode = "list"; s.errors = []; view.update(null, null); paint(); },
     onEscape() { if (view.onEscape()) return true; if (s.mode === "detail") { backToList(); return true; } return false; },
     init() { paint(); },
@@ -1079,7 +1186,9 @@ function applyStaticText() {
 }
 function showPage(id, focusTitle) {
   if (!pages[id]) id = "home";
+  if (currentPage && currentPage !== id && pages[currentPage].deactivate) pages[currentPage].deactivate();
   currentPage = id;
+  if (focusTitle) $("main").scrollTop = 0;
   for (const key of Object.keys(pages)) pages[key].root.hidden = key !== id;
   for (const b of document.querySelectorAll(".nav-item")) { if (b.dataset.page === id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); }
   try { history.replaceState(null, "", "#" + id); } catch (error) { /* file:// or sandbox */ }

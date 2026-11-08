@@ -23,6 +23,8 @@ class Port:
     version: str = ""
     tunnel: str = ""
     http_title: str = ""
+    method: str = ""
+    confidence: int = 0
 
 
 @dataclass
@@ -83,15 +85,38 @@ def _parse_port(port_element: ElementTree.Element) -> Port | None:
 
     state_element = port_element.find("state")
     service_element = port_element.find("service")
+    attrs = service_element.attrib if service_element is not None else {}
+    name = attrs.get("name", "")
+    product = attrs.get("product", "")
+    fingerprint = attrs.get("servicefp", "")
+    method = attrs.get("method", "")
+    try:
+        confidence = int(attrs.get("conf", "0"))
+    except ValueError:
+        confidence = 0
+    # Fingerprints contain escaped response bytes, not executable content.
+    evidence = (product + " " + fingerprint).lower()
+    if any(marker in evidence for marker in ("airtunes/", "airplay/")):
+        name, product = "airplay", "Apple AirPlay / AirTunes"
+    elif "smarthack" in evidence and "simulator" in evidence:
+        if "telnet" in evidence:
+            name, product = "telnet", "SmartHack Telnet simulator"
+        elif "ftp" in evidence:
+            name, product = "ftp", "SmartHack FTP simulator"
+    elif method == "table" or (method == "probed" and confidence < 7):
+        # An open port is evidence of a listener, not of the port-table service.
+        name, product = "unknown", ""
     return Port(
         port=port,
         protocol=port_element.get("protocol", ""),
         state=state_element.get("state", "") if state_element is not None else "",
-        service=service_element.get("name", "") if service_element is not None else "",
-        product=service_element.get("product", "") if service_element is not None else "",
+        service=name,
+        product=product,
         version=service_element.get("version", "") if service_element is not None else "",
         tunnel=service_element.get("tunnel", "") if service_element is not None else "",
         http_title=_http_title(port_element),
+        method=method,
+        confidence=confidence,
     )
 
 

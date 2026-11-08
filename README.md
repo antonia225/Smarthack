@@ -288,3 +288,23 @@ strings and `fix` is a list of steps. Other language values return HTTP 422.
 The stored history remains the engine model, so existing scans also receive
 the catalog explanations when retrieved. A missing or invalid catalog returns
 HTTP 503 with a Romanian/English error, without saving a partial import.
+
+### Service identification and score limits
+
+Nmap names obtained only from its port table (`method="table"`) are displayed
+as `unknown` and do not trigger service-specific risk rules. Probed names
+require confidence of at least 7/10. Explicit AirTunes/AirPlay and laboratory
+simulator response fingerprints override port-table guesses. Older imported
+XML without identification metadata retains its supplied service names for
+compatibility; its evidence cannot be independently verified.
+
+RTSP alone does not identify a camera. Camera classification requires a known
+camera vendor or a camera product accompanying an open RTSP service. An RTSP
+finding describes a streaming service, not proof of unauthenticated access.
+Missing device identity is informational and costs zero points. The score
+summarizes supported findings; a high score does not establish that unknown
+listeners or the network are safe.
+
+These rules apply to new analyses. Saved history retains its original findings
+and scores; restart the server after updating and import the original XML again
+to obtain a new analysis. The update does not rewrite historical records.

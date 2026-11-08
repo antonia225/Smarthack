@@ -2,10 +2,12 @@
 
 import pytest
 from pathlib import Path
+import sqlite3
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
-from netcheck import api, history
+from netcheck import api, history, scanner
 from netcheck.scoring import analyze_file
 
 
@@ -72,19 +74,38 @@ def test_two_questions_are_listed_in_order(monkeypatch, tmp_path):
     monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
     monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
 
-    for question in ("Prima întrebare", "A doua întrebare"):
+    for question in ("Ce porturi sunt deschise?", "Ce riscuri are rețeaua?"):
         response = client.post("/api/ask", json={
             "scan_id": scan_id,
             "question": question,
             "lang": "ro",
         })
         assert response.status_code == 200
+        assert response.json()["mode"] == "fallback"
 
     answers = client.get(f"/api/scans/{scan_id}/answers").json()
     assert [item["question"] for item in answers] == [
-        "Prima întrebare",
-        "A doua întrebare",
+        "Ce porturi sunt deschise?",
+        "Ce riscuri are rețeaua?",
     ]
+
+
+def test_answer_save_failure_is_reported_instead_of_silent_success(monkeypatch, tmp_path, caplog):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
+
+    def cannot_save(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(history, "save_answer", cannot_save)
+    response = client.post("/api/ask", json={
+        "scan_id": scan_id, "question": "Ce porturi sunt deschise?", "lang": "ro",
+    })
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "answer_save_failed"
+    assert "database is locked" in caplog.text
+    assert client.get(f"/api/scans/{scan_id}/answers").json() == []
 
 
 def test_rejected_question_is_not_saved(monkeypatch, tmp_path):
@@ -244,6 +265,16 @@ def test_on_topic_questions_are_answered(monkeypatch, tmp_path, question):
 
 def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
     client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    # Exercise real authorization against a deterministic LAN, not the CI host.
+    client = TestClient(api.create_app(
+        config_path=tmp_path / "missing-lab.json", output_dir=tmp_path / "scans",
+    ))
+    detect = Mock(return_value=scanner.NetworkInfo(
+        "lab0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1",
+    ))
+    run_scan = Mock(side_effect=AssertionError("proposal must never execute Nmap"))
+    monkeypatch.setattr(scanner, "detect_network", detect)
+    monkeypatch.setattr(scanner, "run_scan", run_scan)
 
     def unexpected_call(_):
         raise AssertionError("scan request must not call the AI provider")
@@ -259,10 +290,15 @@ def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
     result = response.json()
     assert result["action"] == {"action": "propose_scan", "target": "8.8.8.8"}
     assert "confirm" not in result["action"]
-    assert client.post("/api/scan", json={
+    detect.assert_not_called()
+    run_scan.assert_not_called()
+    refused = client.post("/api/scan", json={
         "target": result["action"]["target"],
         "confirm": True,
-    }).status_code == 403
+    })
+    assert refused.status_code == 403
+    assert refused.json()["error"]["code"] == "permission_denied"
+    run_scan.assert_not_called()
 
 
 def test_local_network_request_returns_a_local_network_proposal(monkeypatch, tmp_path):

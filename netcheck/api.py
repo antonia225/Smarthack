@@ -121,6 +121,14 @@ def create_app(
 
         return attach_explanations(analysis, lang)
 
+    @application.get("/api/scans/{scan_id}/answers")
+    def answers(scan_id: int) -> list[dict[str, Any]]:
+        try:
+            history.get_scan(scan_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Scan not found.") from exc
+        return history.list_answers(scan_id)
+
     @application.get("/api/compare")
     def compare_scans(
         a: int = Query(...),

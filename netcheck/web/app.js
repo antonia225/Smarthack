@@ -274,6 +274,18 @@ function renderChat(panel, scan) {
         : text("docAnswer", "Răspuns din documentație")));
     }
     item.append(node("p", "", message.text));
+    if (message.action && message.action.action === "propose_scan") {
+      const proposal = node("div", "scan-proposal");
+      const target = message.action.target === "local-network"
+        ? text("localNetwork", "the local network")
+        : message.action.target;
+      proposal.append(node("p", "", text("scanProposal", "Scan proposal") + ": " + target));
+      const confirm = node("button", "button primary", text("confirmScan", "Confirm scan"));
+      confirm.type = "button";
+      confirm.addEventListener("click", () => confirmProposedScan(message.action, confirm));
+      proposal.append(confirm);
+      item.append(proposal);
+    }
     if (message.sources && message.sources.length) {
       const sources = node("p", "chat-sources", text("sources", "Sources") + ": " +
         message.sources.map((source) => source.title || source.id).join(", "));
@@ -331,7 +343,8 @@ async function askLearning(scan, question) {
       role: "assistant",
       text: result.answer,
       sources: result.sources,
-      mode: result.mode
+      mode: result.mode,
+      action: result.action
     };
   } catch (error) {
     if (requestId !== state.chatRequest) return;
@@ -342,6 +355,47 @@ async function askLearning(scan, question) {
   }
   render();
   if (state.view === "home" && state.panel === "chat") focusPanel();
+}
+
+async function confirmProposedScan(action, button) {
+  button.disabled = true;
+  let target = action.target;
+  try {
+    if (target === "local-network") {
+      const networkResponse = await fetch("/api/network");
+      if (!networkResponse.ok) throw new Error("network");
+      const network = await networkResponse.json();
+      target = network.subnet;
+    }
+    const response = await fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target,
+        confirm: true
+      })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      const error = result.error && result.error.message;
+      const messageText = error && (error[state.lang] || error.en || error.ro);
+      throw new Error(messageText || text("scanRejected", "The scan was refused."));
+    }
+    state.chatMessages.push({
+      role: "assistant",
+      text: text("scanStarted", "The confirmed scan completed and was saved to history."),
+      mode: "fallback"
+    });
+    await loadScans();
+  } catch (error) {
+    state.chatMessages.push({
+      role: "assistant",
+      text: error.message || text("scanRejected", "The scan was refused."),
+      mode: "fallback"
+    });
+    render();
+    focusPanel();
+  }
 }
 
 function renderHome() {

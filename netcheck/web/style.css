@@ -96,6 +96,7 @@ details { margin-top: 18px; }.device-list { margin-top: 12px; }
 .chat-message { padding: 11px 12px; border-radius: 10px; background: var(--bg); }
 .chat-message.user { background: var(--accent-soft); }
 .chat-message p { margin-top: 4px; white-space: pre-wrap; }
+.scan-proposal { border: 1px solid var(--accent); border-radius: 8px; margin-top: 10px; padding: 10px; }
 .chat-mode, .chat-sources { display: block; margin-top: 5px; color: var(--muted); font-size: .9rem; }
 .chat-form { display: flex; gap: 8px; margin-top: 14px; }
 .chat-form input { min-width: 0; flex: 1; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; }

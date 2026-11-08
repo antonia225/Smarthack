@@ -20,12 +20,10 @@ def no_network():
         yield detect, process
 
 
-def test_missing_config_defaults_allowlist_to_connected_subnet(tmp_path, no_network):
+def test_missing_config_never_authorizes_the_connected_subnet(tmp_path, no_network):
     missing = tmp_path / "missing.json"
-    validated = validate_scan_request("172.20.10.3", confirm=True, config_path=missing)
-    assert validated.allowed_networks == ("172.20.10.0/28",)
-    for outside in ("8.8.8.8", "192.168.1.5", "172.20.10.200"):
-        with pytest.raises(PermissionError):
+    for outside in ("172.20.10.3", "8.8.8.8", "192.168.1.5", "172.20.10.200"):
+        with pytest.raises(PermissionError, match="Lab is not configured"):
             validate_scan_request(outside, confirm=True, config_path=missing)
     with pytest.raises(PermissionError, match="confirmation is required"):
         validate_scan_request("172.20.10.3", confirm=False, config_path=missing)
@@ -39,9 +37,10 @@ def test_corrupt_config_is_still_refused(tmp_path):
         validate_scan_request("172.20.10.3", confirm=True, config_path=bad)
 
 
-def test_default_target_without_config_is_connected_subnet(tmp_path):
+def test_default_target_without_config_is_refused(tmp_path, no_network):
     from netcheck.scanner import default_scan_target
-    assert default_scan_target(tmp_path / "missing.json") == "172.20.10.0/28"
+    with pytest.raises(PermissionError, match="configure-lab"):
+        default_scan_target(tmp_path / "missing.json")
 
 
 def test_large_connected_network_is_never_authorized_by_default(tmp_path, no_network):

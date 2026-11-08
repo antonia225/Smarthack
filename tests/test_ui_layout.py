@@ -238,3 +238,38 @@ def test_map_controls_are_44px_and_language_switch_drops_stale_announcement(brow
     page.click("#lang-en")
     assert page.inner_text("#announcer") == ""
     page.click("#lang-ro")
+
+
+@pytest.mark.parametrize("width", [1440, 1024, 768, 390])
+def test_import_detail_has_no_implicit_grid_columns(browser, server, width):
+    page = _page(browser, server, width=width)
+    page.click(".nav-item[data-page=import]")
+    page.set_input_files("#page-import input[type=file]", str(VALIDATION / "V3_small_office.xml"))
+    page.click("#page-import .file-card")
+    page.wait_for_selector("#page-import .node")
+    layout = page.eval_on_selector("#page-import .nv", """e => {
+      const css = getComputedStyle(e), bounds = e.getBoundingClientRect();
+      const graph = e.querySelector('.nv-graf').getBoundingClientRect();
+      return { columns: css.gridTemplateColumns.split(' ').length,
+        areas: css.gridTemplateAreas, width: bounds.width, graphWidth: graph.width,
+        overflow: document.documentElement.scrollWidth > window.innerWidth };
+    }""")
+    assert layout["columns"] == (2 if width >= 900 else 1), layout
+    assert 'score' in layout["areas"] and 'detail' in layout["areas"], layout
+    assert layout["graphWidth"] > layout["width"] * (0.4 if width >= 900 else 0.95), layout
+    assert not layout["overflow"], layout
+    page.context.close()
+
+
+@pytest.mark.parametrize("width,height", [(1280, 800), (1440, 900), (390, 844)])
+def test_import_detail_keeps_its_grid(browser, server, width, height):
+    page = _page(browser, server, width, height)
+    page.click(".nav-item[data-page=import]")
+    page.set_input_files("#page-import input[type=file]", [str(VALIDATION / "V2_smart_home.xml")])
+    page.click("#page-import .file-card >> nth=0")
+    page.wait_for_selector("#page-import .node", timeout=10000)
+    areas = page.eval_on_selector("#page-import .nv", "e => getComputedStyle(e).gridTemplateAreas")
+    assert "score" in areas and "detail" in areas
+    for selector in [".nv-graf", ".nv-vuln", ".nv-lateral", ".inspector"]:
+        assert page.eval_on_selector("#page-import " + selector, RECT)[2] >= 300
+    assert page.evaluate("document.documentElement.scrollHeight") < 2600

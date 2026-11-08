@@ -150,13 +150,19 @@ def _detect_macos() -> NetworkInfo:
         destination, gateway, flags, interface = columns[:4]
         if re.fullmatch(r"lo\d+", interface):
             continue
-        if "U" not in flags or "R" in flags or "B" in flags:
-            raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
         if interface != name:
             raise NetworkDetectionError(
                 f"Rută IPv4 pe altă interfață ({interface}); posibil VPN sau rețea ambiguă."
             )
-        if destination == "default" and "U" in flags and "G" in flags:
+        # macOS lists ordinary on-link, broadcast and link-local routes beside
+        # the default route. Their R/B flags do not invalidate the LAN gateway.
+        if destination != "default":
+            if "G" in flags and ("U" not in flags or "R" in flags or "B" in flags):
+                raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
+            continue
+        if "U" not in flags or "R" in flags or "B" in flags:
+            raise NetworkDetectionError("Rută IPv4 inactivă, reject sau blackhole; verificați rutarea.")
+        if "G" in flags:
             defaults.add(gateway)
     if len(defaults) != 1:
         raise NetworkDetectionError("Gateway IPv4 absent sau ambiguu; verificați conexiunea LAN.")
@@ -444,10 +450,10 @@ def validate_scan_request(
             data = json.loads(Path(config_path).read_text(encoding="utf-8"))
             expected = NetworkInfo(**data["network"])
             allowed_networks = data["allowed_networks"]
-        except FileNotFoundError:
-            # No saved lab: the allowlist defaults to the subnet we are on.
-            expected = detect_network()
-            allowed_networks = [_default_allowed(expected)]
+        except FileNotFoundError as exc:
+            # Never auto-authorize the connected LAN: run `configure-lab` first.
+            _default_allowed(detect_network())  # keeps the clear venue-Wi-Fi message
+            raise _lab_not_configured() from exc
         except (OSError, ValueError, TypeError, KeyError) as exc:
             raise _permission_error(
                 "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",
@@ -462,6 +468,13 @@ def validate_scan_request(
         expected = detect_network()
     _check_network(expected, canonical)
     return ValidatedTarget(canonical, permitted, expected, _signature(canonical, permitted, expected))
+
+
+def _lab_not_configured() -> PermissionError:
+    return _permission_error(
+        "Laboratorul nu este configurat; rulați `python -m netcheck configure-lab --confirm` pe hotspot-ul echipei",
+        "Lab is not configured; run `python -m netcheck configure-lab --confirm` on your team hotspot",
+    )
 
 
 def _default_allowed(network: NetworkInfo) -> str:
@@ -483,13 +496,15 @@ def _default_allowed(network: NetworkInfo) -> str:
 
 
 def default_scan_target(config_path: str | Path = _DEFAULT_LAB_CONFIG) -> str:
-    """Saved lab subnet, or the connected subnet when no lab was saved."""
+    """Saved lab subnet; refused when no lab was configured."""
     try:
         data = json.loads(Path(config_path).read_text(encoding="utf-8"))
         network = NetworkInfo(**data["network"])
         return network.subnet
-    except FileNotFoundError:
-        return _default_allowed(detect_network())
+    except FileNotFoundError as exc:
+        # Never auto-authorize the connected LAN: run `configure-lab` first.
+        _default_allowed(detect_network())  # keeps the clear venue-Wi-Fi message
+        raise _lab_not_configured() from exc
     except (OSError, ValueError, TypeError, KeyError) as exc:
         raise _permission_error(
             "Configurația laboratorului lipsește sau este invalidă; configurați explicit laboratorul",

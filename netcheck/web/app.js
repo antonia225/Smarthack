@@ -575,7 +575,28 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       const h4 = el("h4"); h4.append(icon(SEV_ICON[finding.severity]), el("span", "", findingTitle(finding) + (finding.port ? " · " + finding.port : "")));
       card.append(h4, el("p", "", localized(finding.explain) || text("missingExplain")));
       const steps = localized(finding.fix) || [];
-      if (steps.length) { card.append(el("p", "sub", text("whatToDo"))); const ol = el("ol", "steps"); for (const s of steps) ol.append(el("li", "", s)); card.append(ol); }
+      if (steps.length) {
+        const row = el("div", "insp-actions");
+        const manual = button(text("manualFix"), "plain");
+        const automatic = button(text("agentFix"), "primary");
+        const ol = el("ol", "steps"); ol.hidden = true;
+        for (const s of steps) ol.append(el("li", "", s));
+        manual.setAttribute("aria-expanded", "false");
+        manual.addEventListener("click", () => { ol.hidden = !ol.hidden; manual.setAttribute("aria-expanded", String(!ol.hidden)); });
+        const status = el("p", "muted"); status.setAttribute("role", "status");
+        automatic.addEventListener("click", async () => {
+          automatic.disabled = true; status.textContent = text("agentWorking");
+          try {
+            const result = await api("/api/agent/remediate", {
+              method: "POST", headers: JSON_HEADERS,
+              body: JSON.stringify({ scan_id: state.scanId, device_ip: finding.ip, finding_code: finding.code, port: finding.port ?? null, lang, confirm: true })
+            });
+            status.textContent = result.ok ? text(result.data.status === "ok" ? "agentDone" : "agentAccepted") : text("agentUnavailable");
+            if (!result.ok) automatic.disabled = false;
+          } catch (error) { status.textContent = text("agentUnavailable"); automatic.disabled = false; }
+        });
+        row.append(manual, automatic); card.append(row, ol, status);
+      }
       body.append(card);
     }
     if (allowAsk) { const ask = button(text("askAI"), "primary", "i-chat"); ask.addEventListener("click", openChat); const row = el("div", "insp-actions"); row.append(ask); body.append(row); }
@@ -607,8 +628,8 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       for (const m of state.chat.messages) {
         const box = el("article", "msg" + (m.role === "user" ? " user" : ""));
         box.append(el("span", "who", m.role === "user" ? text("you") : text("assistant")));
-        if (m.mode) box.append(el("span", "badge", m.mode === "ai" ? text("badgeAI") : text("badgeDocs")));
-        box.append(el("p", "", m.pending ? text("chatThinking") : m.text));
+
+        box.append(el("p", "", m.pending ? text("chatThinking") : String(m.text || "").replace(/\[(?:catalog|kb|ev):[^\]]+\]/g, "").trim()));
         if (m.action && m.action.action === "propose_scan") {
           const proposal = el("div", "scan-proposal");
           const target = m.action.target === "local-network" ? text("localNetwork") : m.action.target;
@@ -618,7 +639,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
           proposal.append(confirm);
           box.append(proposal);
         }
-        if (m.sources && m.sources.length) box.append(el("p", "src", text("sources") + ": " + m.sources.map((s) => localized(s.title) || s.id).join(", ")));
+
         log.append(box);
       }
       for (const b of chips.querySelectorAll("button")) b.disabled = state.chat.pending;
@@ -679,14 +700,7 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
   }
   /* If the assistant is down we show the scan's own explanation: only text that came from the catalog. */
   function unavailableText() {
-    const pool = sortedFindings(state.scan).filter((f) => !state.selectedIp || f.ip === state.selectedIp).slice(0, 3);
-    const lines = [text("chatUnavailable")];
-    if (!pool.length) lines.push(text("noDeviceFindings"));
-    for (const f of pool) {
-      lines.push("", findingTitle(f) + " (" + whereOf(f) + ")", localized(f.explain) || text("missingExplain"));
-      (localized(f.fix) || []).forEach((s, i) => lines.push((i + 1) + ". " + s));
-    }
-    return lines.join("\n");
+    return text("chatUnavailable");
   }
   function focusPanel() { const h = inspector.querySelector("[data-focus]"); if (h) h.focus({ preventScroll: true }); }
   function showPanel(kind) {

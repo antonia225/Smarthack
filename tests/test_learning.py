@@ -36,8 +36,10 @@ def test_missing_key_uses_documentation_fallback(monkeypatch, tmp_path):
     assert response.status_code == 200
     result = response.json()
     assert result["mode"] == "fallback"
-    assert result["sources"]
-    assert "Asistentul nu e disponibil acum" in result["answer"]
+    assert result["sources"] == []
+    assert "[catalog:" not in result["answer"]
+    assert len(result["answer"].split()) <= 60
+    assert "Asistentul nu e disponibil" not in result["answer"]
     answers = client.get(f"/api/scans/{scan_id}/answers")
     assert answers.status_code == 200
     assert len(answers.json()) == 1
@@ -159,7 +161,7 @@ def test_http_title_injection_is_not_prompt_instruction(monkeypatch, tmp_path):
 
     def fake_ask(prompt):
         captured["prompt"] = prompt
-        return "Nu există suficiente dovezi. [ev:192.168.1.1:80]"
+        return "There is not enough evidence. [ev:192.168.1.1:80]"
 
     monkeypatch.setattr("netcheck.learn_api.agent.ask", fake_ask)
     response = client.post("/api/ask", json={
@@ -228,7 +230,8 @@ def test_real_adapter_network_failure_falls_back_in_english(monkeypatch, tmp_pat
     })
     assert response.status_code == 200
     assert response.json()["mode"] == "fallback"
-    assert response.json()["answer"].startswith("The assistant is not available")
+    assert "HTTP" in response.json()["answer"]
+    assert response.json()["sources"] == []
 
 
 def test_question_limit_is_enforced_by_api(monkeypatch, tmp_path):
@@ -335,3 +338,119 @@ def test_ai_json_proposal_is_returned_without_execution(monkeypatch, tmp_path):
         "action": "propose_scan",
         "target": "172.20.10.0/28",
     }
+
+
+@pytest.mark.parametrize("lang,generated", [
+    ("ro", "The device is open. [ev:192.168.1.1:80]"),
+    ("en", "Dispozitivul este deschis. [ev:192.168.1.1:80]"),
+    ("ro", "Parolele sunt expuse. The device is open. [ev:192.168.1.1:80]"),
+    ("en", "The device is open. " * 40 + "[ev:192.168.1.1:80]"),
+])
+def test_wrong_language_mixed_or_long_output_uses_local_answer(monkeypatch, tmp_path, lang, generated):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.setattr("netcheck.learn_api.agent.ask", lambda _: generated)
+    result = client.post("/api/ask", json={"scan_id": scan_id, "question": "HTTP", "lang": lang}).json()
+    assert result["mode"] == "fallback"
+    assert result["sources"] == []
+    assert len(result["answer"].split()) <= 60
+    assert "[ev:" not in result["answer"]
+    assert ("Parolele" in result["answer"] or "datele" in result["answer"]) if lang == "ro" else "HTTP" in result["answer"]
+
+
+def test_internal_citations_are_never_returned_or_saved(monkeypatch, tmp_path):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.setattr("netcheck.learn_api.agent.ask", lambda _: "HTTP does not hide your data. [catalog:HTTP_ADMIN_CLEARTEXT]")
+    result = client.post("/api/ask", json={"scan_id": scan_id, "question": "HTTP", "lang": "en"}).json()
+    assert result["mode"] == "ai"
+    assert result["answer"] == "HTTP does not hide your data."
+    assert result["sources"] == []
+    assert client.get(f"/api/scans/{scan_id}/answers").json()[0]["answer"] == result["answer"]
+
+
+@pytest.mark.parametrize("lang,expected", [
+    ("ro", "Nu am informații despre asta în documentația mea."),
+    ("en", "I do not have information about that in my documentation."),
+])
+def test_off_topic_refusal_uses_setting(monkeypatch, tmp_path, lang, expected):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.setattr("netcheck.learn_api.agent.ask", lambda _: pytest.fail("Off-topic request reached provider"))
+    result = client.post("/api/ask", json={"scan_id": scan_id, "question": "Write a cake recipe", "lang": lang}).json()
+    assert result["answer"] == expected
+    assert result["mode"] == "refused"
+
+
+def test_remediation_validates_finding_and_forwards_only_explicit_request(monkeypatch, tmp_path):
+    import json
+    from netcheck import remediation_api
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    finding = history.get_scan(scan_id)["findings"][0]
+    payload = dict(scan_id=scan_id, device_ip=finding["ip"], finding_code=finding["code"], port=finding.get("port"), lang="ro", confirm=True)
+    monkeypatch.delenv("NETCHECK_REMEDIATION_URL", raising=False)
+    assert client.post("/api/agent/remediate", json=payload).status_code == 503
+    assert client.post("/api/agent/remediate", json={**payload, "confirm": False}).status_code == 400
+    assert client.post("/api/agent/remediate", json={**payload, "finding_code": "MADE_UP"}).status_code == 404
+    monkeypatch.setenv("NETCHECK_REMEDIATION_URL", "http://127.0.0.1:9000/remediate")
+    response = Mock()
+    response.read.return_value = b'{"status":"accepted"}'
+    response.__enter__ = Mock(return_value=response)
+    response.__exit__ = Mock(return_value=False)
+    send = Mock(return_value=response)
+    monkeypatch.setattr(remediation_api, "urlopen", send)
+    result = client.post("/api/agent/remediate", json=payload)
+    assert result.json() == {"status": "accepted"}
+    sent = json.loads(send.call_args.args[0].data)
+    assert sent == {k: v for k, v in payload.items() if k != "confirm"}
+    response.read.return_value = b'{"status":"failed"}'
+    assert client.post("/api/agent/remediate", json=payload).status_code == 502
+
+
+@pytest.mark.parametrize("lang,question,expected", [
+    ("ro", "Cum dezactivez Telnet?", "marca și modelul"),
+    ("en", "How do I disable Telnet?", "brand and model"),
+])
+def test_offline_how_to_asks_for_model_instead_of_repeating_definition(monkeypatch, tmp_path, lang, question, expected):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
+    result = client.post("/api/ask", json={"scan_id": scan_id, "question": question, "lang": lang}).json()
+    assert result["mode"] == "fallback"
+    assert expected in result["answer"]
+    assert "[catalog:" not in result["answer"]
+    assert len(result["answer"].split()) <= 60
+
+
+@pytest.mark.parametrize("lang,question", [
+    ("ro", "cum e in Paris?"),
+    ("ro", "cum e în Paris?"),
+    ("ro", "Explică-mi cum se face o prăjitură"),
+    ("ro", "De ce plouă la Paris?"),
+    ("ro", "Ce trebuie sa fac in Paris?"),
+    ("en", "How is Paris?"),
+    ("en", "What should I do in Paris?"),
+    ("en", "Is Paris safe?"),
+    ("en", "Tell me the name of the capital of France"),
+])
+def test_selected_device_never_turns_unrelated_question_into_network_question(monkeypatch, tmp_path, lang, question):
+    from netcheck.learn.topic import REFUSAL
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    from netcheck.learn.agent import AgentError
+    provider = Mock(side_effect=AgentError("offline"))
+    monkeypatch.setattr("netcheck.learn_api.agent.ask", provider)
+    for value in ("si FTP? CE e ăla?", question):
+        provider.reset_mock()
+        result = client.post("/api/ask", json={
+            "scan_id": scan_id, "device_ip": "192.168.1.1", "question": value, "lang": lang,
+        }).json()
+        if value == question:
+            provider.assert_not_called()
+            assert result["mode"] == "refused"
+            assert result["answer"] == REFUSAL[lang]
+            assert result["sources"] == []
+
+
+@pytest.mark.parametrize("question", ["Ce înseamnă asta?", "Cum rezolv?", "How do I fix it?"])
+def test_neutral_followup_still_uses_selected_device_context(question):
+    from netcheck.learn.topic import is_on_topic
+    assert is_on_topic(question, has_device=True)
+    # Complete scan questions can also use the whole scan without a selected device.
+    assert not is_on_topic("How is Paris?", has_device=False)

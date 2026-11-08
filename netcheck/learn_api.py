@@ -15,9 +15,9 @@ from netcheck.catalog import attach_explanations
 from .learn import agent, fallback
 from .learn.actions import message, proposal_from_answer, proposal_from_question
 from .learn.evidence import build_evidence
-from .learn.retriever import search, source_dict
+from .learn.retriever import search
 from .learn.topic import REFUSAL, is_on_topic
-from .learn.validator import validate
+from .learn.validator import validate, presentation, readable
 
 
 class AskRequest(BaseModel):
@@ -117,15 +117,17 @@ def ask(request: AskRequest) -> dict[str, Any]:
                     "action": generated_proposal,
                 },
             )
-        if not validate(generated, evidence_text, passages):
+        if generated.strip() == REFUSAL[request.lang]:
+            return _remember(request, {"answer": generated.strip(), "sources": [], "mode": "refused"})
+        if not validate(generated, evidence_text, passages) or not readable(presentation(generated), request.lang):
             raise agent.AgentError("LLM answer failed evidence validation")
         return _remember(request, {
-            "answer": generated,
-            "sources": [source_dict(item) for item in passages],
+            "answer": presentation(generated),
+            "sources": [],
             "mode": "ai",
         })
     except agent.AgentError:
-        answer, sources = fallback.answer(
+        answer, sources = fallback.brief_answer(
             request.question, attach_explanations(analysis, request.lang),
             lang=request.lang, device_ip=request.device_ip,
         )

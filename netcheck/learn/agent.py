@@ -16,9 +16,12 @@ def ask(prompt: str) -> str:
     model = os.environ.get("NETCHECK_LLM_MODEL")
     if not key or not model:
         raise AgentError("LLM credentials are not configured")
+    instructions, _, data = prompt.partition("\n\n")
     payload = json.dumps({
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "system", "content": instructions},
+                     {"role": "user", "content": data}],
+        "max_tokens": 240,
         "temperature": 0,
     }).encode("utf-8")
     request = Request(

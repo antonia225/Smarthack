@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -11,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from netcheck import history
 from netcheck.catalog import attach_explanations
 from .learn import agent, fallback
+from .learn.actions import message, proposal_from_answer, proposal_from_question
 from .learn.evidence import build_evidence
 from .learn.retriever import search, source_dict
 from .learn.topic import REFUSAL, is_on_topic
@@ -26,6 +28,19 @@ class AskRequest(BaseModel):
 
 
 router = APIRouter()
+
+
+def _remember(request: AskRequest, result: dict[str, Any]) -> dict[str, Any]:
+    try:
+        history.save_answer(
+            request.scan_id,
+            request.question,
+            result["answer"],
+            result["mode"],
+        )
+    except sqlite3.Error:
+        pass
+    return result
 
 
 def _prompt(question: str, evidence: list[dict[str, Any]], passages: list[Any], lang: str) -> str:
@@ -55,27 +70,54 @@ def ask(request: AskRequest) -> dict[str, Any]:
     ):
         raise HTTPException(status_code=404, detail="Device not found in scan.")
 
+    requested_proposal = proposal_from_question(request.question)
+    if requested_proposal:
+        return _remember(
+            request,
+            {
+                "answer": message(requested_proposal, request.lang),
+                "sources": [],
+                "mode": "fallback",
+                "action": requested_proposal,
+            },
+        )
+
     if not is_on_topic(request.question, analysis, has_device=bool(request.device_ip)):
         return {
             "answer": REFUSAL[request.lang],
             "sources": [],
             "mode": "refused",
         }
+
     evidence = build_evidence(analysis, request.device_ip, lang=request.lang)
     passages = search(request.question, lang=request.lang)
     evidence_text = "\n".join(f"[{item['id']}] {item['text']}" for item in evidence)
     try:
         generated = agent.ask(_prompt(request.question, evidence, passages, request.lang))
+        generated_proposal = proposal_from_answer(generated)
+        if generated_proposal:
+            return _remember(
+                request,
+                {
+                    "answer": message(generated_proposal, request.lang),
+                    "sources": [],
+                    "mode": "ai",
+                    "action": generated_proposal,
+                },
+            )
         if not validate(generated, evidence_text, passages):
             raise agent.AgentError("LLM answer failed evidence validation")
-        return {
+        return _remember(request, {
             "answer": generated,
             "sources": [source_dict(item) for item in passages],
             "mode": "ai",
-        }
+        })
     except agent.AgentError:
         answer, sources = fallback.answer(
             request.question, attach_explanations(analysis, request.lang),
             lang=request.lang, device_ip=request.device_ip,
         )
-        return {"answer": answer, "sources": sources, "mode": "fallback"}
+        return _remember(
+            request,
+            {"answer": answer, "sources": sources, "mode": "fallback"},
+        )

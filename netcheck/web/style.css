@@ -245,6 +245,7 @@ svg { display: block; }
 .msg .who { font-weight: 700; font-size: 1rem; }
 .msg .badge { justify-self: start; padding: 2px 12px; border-radius: 999px; background: var(--surf); color: var(--label); font-size: 1rem; font-weight: 600; }
 .msg .src { color: var(--label-2); font-size: 1rem; }
+.scan-proposal { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-row); background: var(--surf); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--tint); font-weight: 500; }
 .chip:hover { background: var(--track); }

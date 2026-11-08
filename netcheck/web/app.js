@@ -509,6 +509,15 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
         box.append(el("span", "who", m.role === "user" ? text("you") : text("assistant")));
         if (m.mode) box.append(el("span", "badge", m.mode === "ai" ? text("badgeAI") : text("badgeDocs")));
         box.append(el("p", "", m.pending ? text("chatThinking") : m.text));
+        if (m.action && m.action.action === "propose_scan") {
+          const proposal = el("div", "scan-proposal");
+          const target = m.action.target === "local-network" ? text("localNetwork") : m.action.target;
+          proposal.append(el("p", "", text("scanProposal") + ": " + target));
+          const confirm = button(text("confirmProposal"), "primary", "i-radar");
+          confirm.addEventListener("click", () => confirmProposal(m.action, confirm));
+          proposal.append(confirm);
+          box.append(proposal);
+        }
         if (m.sources && m.sources.length) box.append(el("p", "src", text("sources") + ": " + m.sources.map((s) => localized(s.title) || s.id).join(", ")));
         log.append(box);
       }
@@ -525,11 +534,42 @@ function createNetworkView({ allowAsk = true, variant = "classic" } = {}) {
       let reply;
       try {
         const r = await api("/api/ask", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ scan_id: state.scanId, device_ip: state.selectedIp, question: value, lang }) });
-        if (r.ok && r.data && typeof r.data.answer === "string") reply = { role: "assistant", text: r.data.answer, sources: r.data.sources, mode: r.data.mode === "ai" ? "ai" : r.data.mode === "refused" ? "" : "docs" };
+        if (r.ok && r.data && typeof r.data.answer === "string") reply = {
+          role: "assistant",
+          text: r.data.answer,
+          sources: r.data.sources,
+          mode: r.data.mode === "ai" ? "ai" : r.data.mode === "refused" ? "" : "docs",
+          action: r.data.action
+        };
       } catch (error) { /* offline: fall through to the local explanation */ }
       if (!reply) reply = { role: "assistant", text: unavailableText() };
       chat.messages[chat.messages.length - 1] = reply; chat.pending = false;
       if (state.chat === chat && state.panel === "chat") { paintLog(); input.value = ""; input.focus(); }
+    }
+    async function confirmProposal(action, confirm) {
+      confirm.disabled = true;
+      let target = action.target;
+      try {
+        if (target === "local-network") {
+          const network = await api("/api/network");
+          if (!network.ok || !network.data || typeof network.data.subnet !== "string") throw new Error("network");
+          target = network.data.subnet;
+        }
+        const result = await api("/api/scan", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ target, confirm: true })
+        });
+        if (!result.ok) {
+          const error = result.data && result.data.error;
+          const localized = error && error.message && (error.message[lang] || error.message.en || error.message.ro);
+          throw new Error(localized || text("scanRejected"));
+        }
+        chat.messages.push({ role: "assistant", text: text("scanAccepted"), mode: "docs" });
+      } catch (error) {
+        chat.messages.push({ role: "assistant", text: error.message || text("scanRejected"), mode: "docs" });
+      }
+      paintLog();
     }
     for (const q of questions) { const c = el("button", "chip", q); c.type = "button"; c.addEventListener("click", () => ask(q)); chips.append(c); }
     form.addEventListener("submit", (event) => { event.preventDefault(); const v = input.value; input.value = ""; ask(v); });

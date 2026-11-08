@@ -47,6 +47,7 @@ const TEXTS = {
     chatTitle: "Întreabă despre scanare", chatAbout: "Despre: {name}", chatNetwork: "toată rețeaua",
     chatNotice: "Răspunsurile vin din documentație sau de la un asistent AI. Dacă e setat un furnizor extern, întrebarea și datele scanării (IP-uri, fără MAC și fără nume de dispozitiv) sunt trimise acolo. Nu scrie parole sau alte secrete.",
     chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Întreabă despre scanare și rețea", send: "Trimite", you: "Tu", assistant: "Asistent",
+    scanProposal: "Propunere de scanare", localNetwork: "rețeaua locală", confirmProposal: "Confirmă scanarea", scanAccepted: "Scanarea confirmată s-a terminat și a fost salvată în istoric.", scanRejected: "Scanarea a fost refuzată.",
     badgeAI: "Asistent AI", badgeDocs: "Din documentație", sources: "Surse", chatThinking: "Caut în documentație…", chatLogLabel: "Conversația",
     chatUnavailable: "Asistentul nu e disponibil acum. Iată ce știm din scanare:",
     /* istoric */
@@ -105,6 +106,7 @@ const TEXTS = {
     chatTitle: "Ask about the scan", chatAbout: "About: {name}", chatNetwork: "the whole network",
     chatNotice: "Answers come from documentation or from an AI assistant. If an outside provider is set up, your question and the scan data (IPs, without MAC addresses or device names) are sent to it. Do not type passwords or other secrets.",
     chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Ask about the scan and network", send: "Send", you: "You", assistant: "Assistant",
+    scanProposal: "Scan proposal", localNetwork: "the local network", confirmProposal: "Confirm scan", scanAccepted: "The confirmed scan completed and was saved to history.", scanRejected: "The scan was refused.",
     badgeAI: "AI assistant", badgeDocs: "From documentation", sources: "Sources", chatThinking: "Searching the documentation…", chatLogLabel: "Conversation",
     chatUnavailable: "The assistant is not available right now. Here is what the scan tells us:",
     histTitle: "History", exportBtn: "Export report", clearHistory: "Clear history",

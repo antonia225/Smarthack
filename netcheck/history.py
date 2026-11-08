@@ -62,6 +62,14 @@ def _open_connection(path: str | Path | None = None) -> sqlite3.Connection:
             FOREIGN KEY (scan_id, ip) REFERENCES devices(scan_id, ip)
                 ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS ai_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            mode TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """
     )
     connection.execute("PRAGMA foreign_keys = ON")
@@ -166,6 +174,48 @@ def list_scans(db_path: str | Path | None = None) -> list[dict[str, Any]]:
             FROM scans
             ORDER BY id
             """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def save_answer(
+    scan_id: int,
+    question: str,
+    answer: str,
+    mode: str,
+    db_path: str | Path | None = None,
+) -> int:
+    """Save an assistant answer linked to a scan and return its identifier."""
+
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with _connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        cursor = connection.execute(
+            """
+            INSERT INTO ai_answers
+                (scan_id, question, answer, mode, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (scan_id, question, answer, mode, created_at),
+        )
+        return int(cursor.lastrowid)
+
+
+def list_answers(
+    scan_id: int,
+    db_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """List assistant answers for a scan in insertion order."""
+
+    with _connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, question, answer, mode, created_at
+            FROM ai_answers
+            WHERE scan_id = ?
+            ORDER BY id
+            """,
+            (scan_id,),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -324,6 +374,7 @@ def delete_history(db_path: str | Path | None = None) -> None:
     """Delete every saved scan and its related data."""
 
     with _connect(db_path) as connection:
+        connection.execute("DELETE FROM ai_answers")
         connection.execute("DELETE FROM device_ports")
         connection.execute("DELETE FROM devices")
         connection.execute("DELETE FROM findings")

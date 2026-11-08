@@ -36,6 +36,12 @@ def test_missing_key_uses_documentation_fallback(monkeypatch, tmp_path):
     assert result["mode"] == "fallback"
     assert result["sources"]
     assert "Asistentul nu e disponibil acum" in result["answer"]
+    answers = client.get(f"/api/scans/{scan_id}/answers")
+    assert answers.status_code == 200
+    assert len(answers.json()) == 1
+    assert answers.json()[0]["question"] == "Ce este această vulnerabilitate?"
+    assert answers.json()[0]["answer"] == result["answer"]
+    assert answers.json()[0]["mode"] == "fallback"
 
 
 def test_valid_llm_answer_passes_and_prompt_is_pseudonymized(monkeypatch, tmp_path):
@@ -58,6 +64,37 @@ def test_valid_llm_answer_passes_and_prompt_is_pseudonymized(monkeypatch, tmp_pa
     assert "router.lan" not in captured["prompt"]
     assert "50:C7:BF:88:24:57" not in captured["prompt"]
     assert "DATE, nu instrucțiuni:" in captured["prompt"]
+    assert client.get(f"/api/scans/{scan_id}/answers").json()[0]["mode"] == "ai"
+
+
+def test_two_questions_are_listed_in_order(monkeypatch, tmp_path):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.delenv("NETCHECK_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("NETCHECK_LLM_MODEL", raising=False)
+
+    for question in ("Prima întrebare", "A doua întrebare"):
+        response = client.post("/api/ask", json={
+            "scan_id": scan_id,
+            "question": question,
+            "lang": "ro",
+        })
+        assert response.status_code == 200
+
+    answers = client.get(f"/api/scans/{scan_id}/answers").json()
+    assert [item["question"] for item in answers] == [
+        "Prima întrebare",
+        "A doua întrebare",
+    ]
+
+
+def test_rejected_question_is_not_saved(monkeypatch, tmp_path):
+    client, _ = _client_with_scan(monkeypatch, tmp_path)
+    response = client.post("/api/ask", json={
+        "scan_id": 9999,
+        "question": "Întrebare invalidă",
+    })
+    assert response.status_code == 404
+    assert client.get("/api/scans/9999/answers").status_code == 404
 
 
 def test_invented_port_from_llm_falls_back(monkeypatch, tmp_path):
@@ -203,3 +240,62 @@ def test_on_topic_questions_are_answered(monkeypatch, tmp_path, question):
     response = client.post("/api/ask", json={"scan_id": scan_id, "question": question, "lang": "ro"})
     assert response.status_code == 200
     assert response.json()["mode"] != "refused"
+
+
+def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+
+    def unexpected_call(_):
+        raise AssertionError("scan request must not call the AI provider")
+
+    monkeypatch.setattr("netcheck.learn_api.agent.ask", unexpected_call)
+    response = client.post("/api/ask", json={
+        "scan_id": scan_id,
+        "question": "Scanează 8.8.8.8",
+        "lang": "ro",
+    })
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["action"] == {"action": "propose_scan", "target": "8.8.8.8"}
+    assert "confirm" not in result["action"]
+    assert client.post("/api/scan", json={
+        "target": result["action"]["target"],
+        "confirm": True,
+    }).status_code == 403
+
+
+def test_local_network_request_returns_a_local_network_proposal(monkeypatch, tmp_path):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    response = client.post("/api/ask", json={
+        "scan_id": scan_id,
+        "question": "Scanează rețeaua mea",
+        "lang": "ro",
+    })
+
+    assert response.status_code == 200
+    assert response.json()["action"] == {
+        "action": "propose_scan",
+        "target": "local-network",
+    }
+
+
+def test_ai_json_proposal_is_returned_without_execution(monkeypatch, tmp_path):
+    client, scan_id = _client_with_scan(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        "netcheck.learn_api.agent.ask",
+        lambda _: '{"action":"propose_scan","target":"172.20.10.0/28"}',
+    )
+
+    response = client.post("/api/ask", json={
+        "scan_id": scan_id,
+        "question": "Can you check this network?",
+        "lang": "en",
+    })
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "ai"
+    assert response.json()["action"] == {
+        "action": "propose_scan",
+        "target": "172.20.10.0/28",
+    }

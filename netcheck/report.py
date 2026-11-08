@@ -123,7 +123,7 @@ h3 {{ font-size: 11.5pt; margin: 0 0 5px; }} h4 {{ margin: 10px 0 3px; }}
 .summary strong {{ display: block; font-size: 18pt; color: #1B3A78; }}
 .device, .finding {{ border: 1px solid #d8dee8; border-left: 4px solid #1B3A78; border-radius: 6px; margin: 8px 0; padding: 10px 12px; page-break-inside: avoid; }}
 .finding strong {{ color: #a51d2d; text-transform: uppercase; }} ol {{ margin: 5px 0 0 20px; padding: 0; }}
-.toolbar {{ margin: 0 0 18px; }} button {{ background: #1B3A78; border: 0; border-radius: 5px; color: #fff; padding: 8px 14px; }} 
+.toolbar {{ margin: 0 0 18px; }} button {{ background: #1B3A78; border: 0; border-radius: 5px; color: #fff; padding: 8px 14px; }}
 @media print {{ .toolbar {{ display: none; }} }}
 </style>
 </head>

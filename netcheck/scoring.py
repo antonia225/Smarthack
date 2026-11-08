@@ -33,9 +33,11 @@ def _mask_mac(mac: str) -> str:
 def _device_type(device: Device) -> str:
     vendor = device.vendor.lower()
     hostname = device.hostname.lower()
-    services = {port.service.lower() for port in device.ports}
+    open_ports = [port for port in device.ports if port.state.lower() == "open"]
+    services = {port.service.lower() for port in open_ports}
+    products = " ".join(port.product.lower() for port in open_ports)
 
-    if "rtsp" in services or any(name in vendor for name in ("hikvision", "dahua")):
+    if any(name in vendor for name in ("hikvision", "dahua")) or ("rtsp" in services and "camera" in products):
         return "camera"
     if "jetdirect" in services:
         return "printer"

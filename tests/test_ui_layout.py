@@ -95,22 +95,19 @@ def _open(page):
     return page.eval_on_selector("#page-home .inspector", "e => e.dataset.open")
 
 
-def test_panel_never_reflows_the_grid_at_1440x900(browser, server):
+def test_details_replace_placeholder_and_results_use_page_scroll(browser, server):
     page = _page(browser, server)
-    assert page.evaluate("document.documentElement.scrollHeight <= window.innerHeight")
-    before, cls_before = _boxes(page), page.evaluate("window.__cls")
+    assert page.is_visible("#page-home .unselected-device")
+    assert page.locator("#page-home .overview").count() == 0
+    document_rect = "e => { const r = e.getBoundingClientRect(); return [r.x, r.y + scrollY, r.width, r.height]; }"
+    graph_before = page.locator("#page-home .nv-graf").evaluate(document_rect)
     page.click("#page-home .vrow >> nth=0")
-    page.wait_for_timeout(300)
-    opened = _boxes(page)
     assert _open(page) == "true"
-    insp = page.eval_on_selector("#page-home .inspector", RECT)
-    assert insp == before[".nv-lateral"]
+    assert page.locator("#page-home .nv-graf").evaluate(document_rect) == graph_before
+    for selector in [".vlist", ".insp-body"]:
+        assert page.locator("#page-home " + selector).evaluate("e => getComputedStyle(e).overflowY") == "visible"
     page.keyboard.press("Escape")
-    page.wait_for_timeout(300)
-    assert _open(page) == "false"
-    closed = _boxes(page)
-    assert opened == before and closed == before
-    assert page.evaluate("window.__cls") - cls_before == 0
+    assert page.is_visible("#page-home .unselected-device")
 
 
 def test_text_is_at_least_16px_and_hostnames_never_shown(browser, server):
@@ -154,6 +151,63 @@ def test_import_batch_does_not_touch_home(browser, server):
 def test_narrow_screen_has_no_horizontal_scroll(browser, server):
     page = _page(browser, server, 390, 844)
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_device_list_opens_the_same_details_with_keyboard(browser, server):
+    page = _page(browser, server)
+    page.click("#page-home .view-opt >> nth=1")
+    assert page.is_hidden("#page-home .graph")
+    assert page.is_hidden("#page-home .map-tools")
+    assert page.locator("#page-home .nv-graf-head .view-picker").count() == 1
+    device = page.locator("#page-home .device-item").nth(1)
+    device.focus()
+    page.keyboard.press("Enter")
+    assert _open(page) == "true"
+    page.keyboard.press("Escape")
+    assert _open(page) == "false"
+    assert device.evaluate("e => e === document.activeElement")
+
+
+def test_mobile_details_are_inline_and_leave_navigation_available(browser, server):
+    page = _page(browser, server, 390, 844)
+    page.locator("#page-home .node[role=button]").first.focus()
+    page.keyboard.press("Enter")
+    panel = page.locator("#page-home .inspector")
+    assert panel.get_attribute("aria-modal") is None
+    assert not page.locator(".sidebar").evaluate("e => e.inert")
+    assert panel.locator(".insp-body").evaluate("e => getComputedStyle(e).overflowY") == "visible"
+    page.keyboard.press("Escape")
+    assert page.is_visible("#page-home .unselected-device")
+
+
+def test_language_switch_updates_the_new_summary_and_device_views(browser, server):
+    page = _page(browser, server)
+    page.click("#lang-en")
+    assert page.locator("html").get_attribute("lang") == "en"
+    assert page.inner_text("#home-title") == "Care for your network."
+    assert page.text_content("#page-home .unselected-device h2") == "No device selected"
+    assert page.inner_text("#page-home .view-opt >> nth=1") == "List"
+    page.click("#lang-ro")
+    assert page.inner_text("#page-home .view-opt >> nth=1") == "Listă"
+
+
+def test_map_zoom_pan_and_reset_with_keyboard(browser, server):
+    page = _page(browser, server)
+    graph = page.locator("#page-home .graph")
+    svg = graph.locator("svg.map")
+    original = svg.get_attribute("viewBox")
+    graph.focus()
+    page.keyboard.press("+")
+    zoomed = svg.get_attribute("viewBox")
+    assert zoomed != original
+    page.keyboard.press("ArrowRight")
+    assert svg.get_attribute("viewBox") != zoomed
+    page.keyboard.press("0")
+    assert svg.get_attribute("viewBox") == original
+    page.click("#page-home .map-tools button >> nth=2")
+    assert svg.get_attribute("viewBox") != original
+    page.click("#page-home .map-tools button >> nth=1")
+    assert svg.get_attribute("viewBox") == original
 
 
 def test_import_list_cards_detail_back_and_error_autodismiss(browser, server):

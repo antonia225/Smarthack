@@ -91,12 +91,12 @@
     "severity": "high",
     "points": 20,
     "title": {
-      "ro": "Serviciu pentru transmisie video",
-      "en": "Video streaming service"
+      "ro": "Serviciu de streaming RTSP disponibil",
+      "en": "RTSP streaming service available"
     },
     "explain": {
-      "ro": "Dispozitivul acceptă RTSP, o metodă de transmisie video folosită și de camere. Scanarea nu arată dacă imaginile pot fi văzute fără parolă.",
-      "en": "The device accepts RTSP, a video streaming method also used by cameras. The scan does not show whether images can be viewed without a password."
+      "ro": "Dispozitivul răspunde ca serviciu RTSP, folosit pentru streaming audio sau video. Scanarea nu dovedește că este o cameră sau că fluxul poate fi accesat fără autentificare.",
+      "en": "The device responds as an RTSP service, used for audio or video streaming. The scan does not establish that it is a camera or that its stream is accessible without authentication."
     },
     "fix": {
       "ro": [
@@ -290,15 +290,15 @@
     }
   },
   "UNKNOWN_DEVICE": {
-    "severity": "low",
-    "points": 5,
+    "severity": "info",
+    "points": 0,
     "title": {
       "ro": "Dispozitiv care poate fi necunoscut",
       "en": "Device that may be unfamiliar"
     },
     "explain": {
-      "ro": "Dispozitivul poate fi unul pe care nu îl recunoști, deoarece scanarea nu a găsit un nume sau un producător. Poate fi și un dispozitiv al tău care nu oferă aceste informații.",
-      "en": "The device may be one you do not recognize because the scan found no name or manufacturer. It may also be one of your devices that does not provide this information."
+      "ro": "Scanarea nu a găsit un nume sau un producător pentru acest dispozitiv. Lipsa identificării nu dovedește un risc și nu scade scorul.",
+      "en": "The scan did not find a name or manufacturer for this device. Missing identification does not establish a risk and does not reduce the score."
     },
     "fix": {
       "ro": [

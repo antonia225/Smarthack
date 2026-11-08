@@ -10,6 +10,7 @@
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
+    <symbol id="i-house-network" viewBox="0 0 240 200"><path d="m20 90 100-76 100 76M40 72v112h160V72M98 184v-60h44v60" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><path d="M62 98h22v25H62zM156 98h22v25h-22z" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="120" cy="75" r="8" fill="currentColor"/><path d="m77 105 43-30 43 30M120 83v34" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 5"/></symbol>
     <symbol id="i-logo" viewBox="0 0 24 24"><path d="M12 3c4.2 0 7 1.4 7 1.4v6.2c0 4.6-2.9 8.2-7 10.4-4.1-2.200-7-5.800-7-10.400V4.400S7.800 3 12 3z" fill="currentColor"/><path d="M8.800 11.800l2.200 2.200 4.200-4.400" fill="none" stroke="var(--logo-mark, #fff)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.200L12 4l8 7.200V19a1.500 1.500 0 01-1.500 1.500H15v-5.500H9v5.500H5.500A1.500 1.500 0 014 19v-7.800z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.500" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.500V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -48,12 +49,14 @@
 
 <div class="app">
   <aside class="sidebar" aria-label="NetCheck">
-    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><span data-i18n="appName"></span></div>
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="appName"></span></div>
+    <p class="brand-caption" data-i18n="brandCaption"></p>
     <nav class="nav" data-i18n-aria="navLabel">
       <button type="button" class="nav-item" data-page="home"><svg aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="navHome"></span></button>
       <button type="button" class="nav-item" data-page="history"><svg aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="navHistory"></span></button>
       <button type="button" class="nav-item" data-page="import"><svg aria-hidden="true"><use href="#i-upload"/></svg><span data-i18n="navImport"></span></button>
     </nav>
+    <div class="sidebar-note"><svg aria-hidden="true"><use href="#i-logo"/></svg><p data-i18n="sidebarNote"></p></div>
     <div class="lang" role="radiogroup" data-i18n-aria="language">
       <button type="button" role="radio" class="lang-opt" id="lang-ro" data-lang="ro" lang="ro" aria-label="Română">RO</button>
       <button type="button" role="radio" class="lang-opt" id="lang-en" data-lang="en" lang="en" aria-label="English">EN</button>

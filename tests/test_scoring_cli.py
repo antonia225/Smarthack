@@ -46,7 +46,7 @@ def test_cli_writes_expected_csv_files(tmp_path):
         "V1_home_basic.xml": "90",
         "V2_smart_home.xml": "40",
         "V3_small_office.xml": "45",
-        "V4_legacy.xml": "25",
+        "V4_legacy.xml": "30",
         "V5_nonstandard_ports.xml": "50",
         "V6a_before.xml": "60",
         "V6b_after.xml": "100",

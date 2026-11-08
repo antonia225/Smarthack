@@ -45,6 +45,7 @@ Desktop.ini
 .vscode/
 
 # Build artifacts
+/output/
 build/
 dist/
 *.egg-info/

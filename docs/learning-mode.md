@@ -17,7 +17,7 @@ scris în analiza salvată și nu poate porni o scanare sau aplica remedieri.
 3. `POST /api/ask` primește `scan_id`, `question`, `lang` (`ro`/`en`) și opțional
    `device_ip`; încarcă analiza din SQLite și construiește dovezile.
 4. `netcheck/prompts/system_ro.md` sau `system_en.md`, dovezile, pasajele și
-   întrebarea formează un singur mesaj către adaptorul `learn/agent.py`.
+   întrebarea ajung în adaptorul `learn/agent.py`. Regulile sunt un mesaj system, iar contextul și întrebarea sunt un mesaj user.
 5. Adaptorul trimite chat-completions către endpointul configurat numai dacă
    există atât cheia, cât și modelul; timeoutul de rețea este 8 secunde.
 6. Validatorul verifică marcajele de citare față de ID-urile efectiv furnizate și compară anumite
@@ -59,35 +59,46 @@ Pentru un furnizor aprobat, exportă `NETCHECK_LLM_API_KEY`, `NETCHECK_LLM_MODEL
 și opțional `NETCHECK_LLM_API_URL` înainte de pornire (vezi `.env.example`).
 Cheia nu se introduce în UI și nu se salvează în Git.
 
-Fără cheie/model, la eroare de rețea, timeout sau răspuns respins, `/api/ask`
-răspunde local și determinist, **fără niciun apel LLM** (`mode: fallback`;
-comportamentul proiectat NFR-06, nu o eroare):
+Fără cheie/model, la eroare de rețea, timeout sau răspuns respins, asistentul
+folosește o explicație scurtă din catalog, numai în limba cerută. Nu copiază
+pasajele externe în limba lor originală. Dacă nu are informații potrivite,
+răspunde „Nu am informații despre asta în documentația mea.” (sau în engleză).
+Citările sunt verificate intern și eliminate înainte de salvare și afișare;
+`sources` este gol. Instrucțiunile cer maximum 3 propoziții, 60 de cuvinte și
+20 de cuvinte pe propoziție. Validatorul respinge lungimea excesivă și indicii
+uzuale de limbă greșită sau amestecată; nu este un detector lingvistic complet.
 
-- `netcheck/learn/intent.py` recunoaște prin expresii fixe, RO (cu sau fără
-  diacritice, ex. „scor/scorul/scorului”) și EN: cel mai expus dispozitiv, cu ce
-  încep, ce înseamnă, cum repar, care e scorul, e grav, ce porturi sunt raportate.
-  Aceste întrebări trec și de filtrul de temă, chiar fără dispozitiv selectat.
-- `netcheck/learn/fallback.py` compune răspunsul din analiza salvată (`top_risk`,
-  scor, dispozitive, finding-uri) și din `explain`/`fix` ale catalogului în limba
-  cerută, cu pașii numerotați. Nu recalculează și nu modifică finding-uri,
-  severități sau scorul; eticheta scorului (≥ 70 bun, ≥ 50 merită atenție, altfel
-  are nevoie de atenție) este aceeași ca în UI. Prefixul numește sursa:
-  „Răspuns din scanare și catalogul local:” / „Answer from the scan and the local
-  catalog:”. `sources` începe cu `{"type": "scan"}`, urmat de intrările `catalog`
-  (și eventual `kb`) citate.
-- Pentru celelalte întrebări din temă se folosește căutarea locală: o intrare de
-  catalog și cel mult un extras din corpus, cu prefixul „Răspuns din catalogul și
-  documentația locală:” / „Answer from the local catalog and documentation:”.
-- Corpusul este doar sursă secundară: numai pasaje în limba cerută, tăiate la
-  propoziții întregi, fără cuprinsuri sau liste de referințe. Corpusul actual are
-  numai surse în engleză, deci răspunsurile RO folosesc doar catalogul; un pasaj
-  EN găsit este înlocuit cu intrarea de catalog a codului pe care îl documentează.
+## Recomandări și agent de remediere
 
-Catalogul funcționează și fără corpus descărcat. Absența corpusului **nu
-oprește** apelul LLM dacă există cheie/model. Fără internet, serverul local
-trebuie să rămână pornit; dacă serverul nu răspunde, UI-ul afișează în browser
-explicațiile din catalog ale scanării deja încărcate („Asistentul nu e disponibil
-acum…”), nu un răspuns `/api/ask`.
+Fiecare recomandare are două butoane: „Arată-mi pașii” afișează pașii locali,
+iar „Repară cu agentul” trimite o cerere explicită la `POST /api/agent/remediate`.
+Backendul verifică dacă problema aparține scanării și cere `confirm: true`.
+Nu rulează comenzi generate de LLM.
+
+În proiect nu există un serviciu de remediere automată. Scripturile din
+`scripts/macos` și `scripts/windows` sunt doar pentru laborator și nu sunt
+executate de acest endpoint. Conexiunea nouă cere `NETCHECK_REMEDIATION_URL`
+și, opțional, `NETCHECK_REMEDIATION_API_KEY` în mediul serverului. Agentul primește
+JSON cu `scan_id`, `device_ip`, `finding_code`, `port`, `lang`; răspunde cu
+`{"status":"ok"}` la final sau `{"status":"accepted"}` dacă a pus cererea în coadă.
+Fără configurare, API-ul returnează 503 și UI-ul oferă pașii manuali.
+Nu a fost verificată execuția unui agent extern real.
+## Răspunsuri locale din scanare
+
+Fără furnizor configurat, `brief_answer` păstrează răspunsurile despre scor,
+severitate, dispozitivul cel mai expus, primul pas și porturi, pe baza analizei
+salvate. Nu recalculează finding-uri sau scoruri. Răspunsul public este scurt,
+în limba cerută, fără prefix de sursă și cu `sources: []`.
+
+Implementarea detaliată din `answer` și utilitarele pentru curățarea pasajelor
+rămân disponibile intern, dar nu sunt afișate de endpointul de conversație.
+Întrebările despre un protocol explicit au prioritate față de dispozitivul
+selectat. Pentru instrucțiuni specifice meniurilor, asistentul cere marca și
+modelul. Filtrul acceptă întrebări complete despre scanare și continuări neutre;
+un cuvânt generic precum „cum” nu autorizează o întrebare despre Paris.
+
+Catalogul funcționează fără corpus descărcat. Dacă serverul local nu răspunde,
+UI-ul afișează un mesaj scurt de indisponibilitate.
 
 ## Limitări
 
@@ -146,13 +157,13 @@ cu DOM stub; nu înlocuiește verificarea în browser.
    detalii, chat, formular și dialog (anulează ștergerea). Notează orice focus
    pierdut sau control inaccesibil. În chat, Esc trebuie să revină la detalii;
    încă un Esc la lista de constatări, cu focus vizibil în panou.
-5. În RO și apoi EN, verifică toate ecranele, răspunsul și sursele. Reîncarcă
+5. În RO și apoi EN, verifică toate ecranele, răspunsul fără surse. Reîncarcă
    pagina și testează și schimbarea dinamică; explicațiile trebuie să treacă
    imediat în limba selectată. Nu declara proba vizuală reușită înainte de rulare.
 6. Măsoară în instrumentele de accesibilitate ale browserului contrastul textului
    (minimum 4,5:1, sau 3:1 pentru text mare), controalelor și focusului (3:1),
    inclusiv hover, selectat, severități și erori. Salvează valori/capturi.
-7. Trimite o întrebare fără cheie: cere `mode: fallback`, prefixul local și surse
+7. Trimite o întrebare fără cheie: cere `mode: fallback`, text scurt în limba aleasă și `sources: []`
    în răspunsul `/api/ask` din Network. Oprește internetul, păstrând serverul
    pornit, și repetă; pagina și catalogul trebuie să funcționeze local.
 8. Pentru proba live, repornește serverul cu cheia/modelul furnizorului aprobat

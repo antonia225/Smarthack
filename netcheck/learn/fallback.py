@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections import Counter
 import re
 from typing import Any
-
 from netcheck.catalog import load_catalog
 from . import intent
 from .retriever import Passage, passages, search, source_dict
@@ -481,3 +480,41 @@ def answer(
         lines = [c.t["no_answer"]]
         sources = [{"type": "catalog", "id": "local", "title": c.t["local_catalog"]}]
     return _render(lines, c, "docs", sources)
+
+
+def brief_answer(question: str, analysis: dict[str, Any], *, lang: str,
+                 device_ip: str | None = None) -> tuple[str, list[dict[str, str | None]]]:
+    """Public presentation: short scan-aware answers without source disclosure."""
+    from .topic import REFUSAL
+    c = _Context(analysis, lang, device_ip, question)
+    name = intent.detect(question)
+    if name == intent.SCORE:
+        return " ".join([c.score_line(), c.counts_line(),
+                          "Scorul nu garantează că rețeaua e sigură." if lang == "ro"
+                          else "The score does not guarantee the network is safe."]), []
+    if name == intent.PORTS:
+        return "\n".join(_ports(c)[:3]), []
+    matches = [p for p in search(question, lang=lang, limit=20) if p.source_type == "catalog"]
+    explicit = matches[0].id if matches else None
+    # Explicit protocol questions take priority over the selected device.
+    selected = next((f for f in c.scoped if f.get("code") == explicit), None)
+    if explicit is None or name in {intent.WORST, intent.START, intent.SEVERITY, intent.EXPLAIN}:
+        selected = c.top if name == intent.WORST else next(iter(c.scoped), None)
+    if selected is None and explicit is not None and name not in {intent.WORST, intent.SEVERITY, intent.EXPLAIN}:
+        selected = {"code": explicit}
+    if selected is None:
+        if name is not None:
+            key = "nothing_to_fix" if name in {intent.FIX, intent.START} else "network_none"
+            return c.t[key].format(scope=c.scope_name()), []
+        return REFUSAL[lang], []
+    if name == intent.FIX or re.search(r"\b(cum|how|disable|opresc)\b", intent.normalize(question)):
+        detail = {
+            "ro": "Spune-mi marca și modelul dispozitivului pentru pași mai preciși. Scanarea nu arată meniurile lui.",
+            "en": "Tell me the device brand and model for more precise steps. The scan does not show its menus.",
+        }[lang]
+        return c.field(selected, "fix")[0] + " " + detail, []
+    if name in {intent.WORST, intent.START}:
+        return f"{c.title(selected)} ({c.where(selected)}). {c.field(selected, 'fix')[0]}", []
+    if name == intent.SEVERITY:
+        return c.t.get(f"sev_{selected.get('severity')}", "") + " " + c.explain(selected), []
+    return c.explain(selected), []

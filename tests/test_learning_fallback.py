@@ -89,9 +89,11 @@ def test_every_intent_answers_from_the_scan(monkeypatch, tmp_path, offline, lang
     result = _ask(client, scan_id, question, lang, device_ip)
 
     assert result["mode"] == "fallback"
-    assert result["answer"].startswith(fallback.PREFIX["scan"][lang])
+    assert len(result["answer"].split()) <= 60
+    assert "[catalog:" not in result["answer"]
+    assert "[kb:" not in result["answer"]
     assert "nu e disponibil" not in result["answer"] and "not available" not in result["answer"]
-    assert result["sources"][0]["type"] == "scan"
+    assert result["sources"] == []
     saved = client.get(f"/api/scans/{scan_id}/answers").json()
     assert saved[-1]["answer"] == result["answer"] and saved[-1]["mode"] == "fallback"
 
@@ -108,26 +110,24 @@ def test_most_dangerous_device_is_the_engine_top_risk(monkeypatch, tmp_path, off
 
 @pytest.mark.parametrize("lang", ["ro", "en"])
 @pytest.mark.parametrize("with_device", [False, True])
-def test_fix_lists_numbered_catalog_steps_in_the_requested_language(monkeypatch, tmp_path, offline, lang, with_device):
+def test_fix_starts_with_catalog_step_in_the_requested_language(monkeypatch, tmp_path, offline, lang, with_device):
     client, scan_id, scan = _client(monkeypatch, tmp_path)
     device_ip = "192.168.1.1" if with_device else None
     answer = _ask(client, scan_id, QUESTIONS[lang][intent.FIX], lang, device_ip)["answer"]
     findings = [f for f in scan["findings"] if device_ip is None or f["ip"] == device_ip]
     first = next(f for f in findings if (f["ip"], f["code"]) == (scan["top_risk"]["ip"], scan["top_risk"]["code"]))
-    for number, step in enumerate(CATALOG[first["code"]]["fix"][lang], 1):
-        assert f"{number}. {step}" in answer
+    assert CATALOG[first["code"]]["fix"][lang][0] in answer
+    assert ("marca și modelul" if lang == "ro" else "brand and model") in answer
     other = "en" if lang == "ro" else "ro"
     assert CATALOG[first["code"]]["fix"][other][0] not in answer
 
 
-def test_fix_for_selected_device_covers_its_findings(monkeypatch, tmp_path, offline):
+def test_fix_for_selected_device_prioritizes_its_first_finding(monkeypatch, tmp_path, offline):
     client, scan_id, scan = _client(monkeypatch, tmp_path)
     answer = _ask(client, scan_id, "Cum repar?", "ro", "192.168.1.1")["answer"]
     own = [f for f in scan["findings"] if f["ip"] == "192.168.1.1"]
     assert own
-    for finding in own[:3]:
-        for step in CATALOG[finding["code"]]["fix"]["ro"]:
-            assert step in answer
+    assert CATALOG[own[0]["code"]]["fix"]["ro"][0] in answer
     assert all(f["ip"] == "192.168.1.1" or f["ip"] not in answer for f in scan["findings"])
 
 
@@ -158,15 +158,15 @@ def test_is_it_bad_uses_the_top_finding_severity(monkeypatch, tmp_path, offline,
     client, scan_id, scan = _client(monkeypatch, tmp_path)
     answer = _ask(client, scan_id, QUESTIONS[lang][intent.SEVERITY], lang)["answer"]
     assert scan["top_risk"]["severity"] == "high"
-    assert label in answer
+    assert ("merită rezolvat cât mai curând" if lang == "ro" else "worth fixing soon") in answer
     assert CATALOG[scan["top_risk"]["code"]]["explain"][lang] in answer
 
 
 def test_explain_selected_device_uses_catalog_explanations(monkeypatch, tmp_path, offline):
     client, scan_id, scan = _client(monkeypatch, tmp_path)
     answer = _ask(client, scan_id, "What does this mean?", "en", "192.168.1.1")["answer"]
-    for finding in [f for f in scan["findings"] if f["ip"] == "192.168.1.1"][:3]:
-        assert CATALOG[finding["code"]]["explain"]["en"] in answer
+    first = next(f for f in scan["findings"] if f["ip"] == "192.168.1.1")
+    assert CATALOG[first["code"]]["explain"]["en"] in answer
 
 
 def test_clean_scan_has_nothing_to_fix(monkeypatch, tmp_path, offline):
@@ -191,14 +191,14 @@ def test_romanian_answers_contain_no_other_language_corpus(monkeypatch, tmp_path
         assert phrase not in result["answer"]
 
 
-def test_english_answer_adds_one_clean_documented_excerpt(monkeypatch, tmp_path, offline):
+def test_english_public_answer_keeps_sources_internal(monkeypatch, tmp_path, offline):
     client, scan_id, scan = _client(monkeypatch, tmp_path)
     result = _ask(client, scan_id, "Which device is the most dangerous?", "en")
-    kb = [source for source in result["sources"] if source["type"] == "kb"]
-    assert len(kb) == 1 and kb[0]["url"].startswith("https://")
-    passage = next(p for p in retriever.passages("en") if p.source_type == "kb" and p.id == kb[0]["id"])
-    assert scan["top_risk"]["code"] in passage.codes
-    assert f"[kb:{passage.id}]" in result["answer"]
+    assert result["sources"] == []
+    assert "[kb:" not in result["answer"]
+    assert "[catalog:" not in result["answer"]
+    assert scan["top_risk"]["ip"] in result["answer"]
+    assert CATALOG[scan["top_risk"]["code"]]["fix"]["en"][0] in result["answer"]
 
 
 def test_excerpt_cleaning_drops_fragments_and_tables_of_contents():

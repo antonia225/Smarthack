@@ -3,6 +3,9 @@
    Placeholders like {n} are filled by text(key, {n: 3}). Arrays are lists of steps. */
 const TEXTS = {
   ro: {
+    manualFix: "Arată-mi pașii", agentFix: "Repară cu agentul", agentWorking: "Agentul lucrează…",
+    agentDone: "Agentul a terminat. Scanează din nou pentru a verifica.", agentAccepted: "Agentul a primit cererea. Verifică rezultatul mai târziu.",
+    agentUnavailable: "Agentul nu este disponibil acum. Poți urma pașii manuali.",
     noDeviceSelected: "Nu ai selectat un dispozitiv", selectDeviceHint: "Alege un dispozitiv din hartă, listă sau din vulnerabilități pentru a vedea detaliile și pașii recomandați.",
     zoomIn: "Mărește harta", zoomOut: "Micșorează harta", resetMap: "Resetează harta", mapNavigation: "Hartă interactivă. Plus și minus pentru zoom, săgeți pentru deplasare, zero pentru resetare. Poți trage fundalul hărții.",
     brandCaption: "Siguranță, pe înțelesul tău.", sidebarNote: "Cunoaște rețeaua. Înțelege riscurile. Fă următorul pas.",
@@ -57,7 +60,7 @@ const TEXTS = {
     chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Întreabă despre scanare și rețea", send: "Trimite", you: "Tu", assistant: "Asistent",
     scanProposal: "Propunere de scanare", localNetwork: "rețeaua locală", confirmProposal: "Confirmă scanarea", scanAccepted: "Scanarea confirmată s-a terminat și a fost salvată în istoric.", scanRejected: "Scanarea a fost refuzată.",
     badgeAI: "Asistent AI", badgeDocs: "Din documentație", sources: "Surse", chatThinking: "Caut în documentație…", chatLogLabel: "Conversația",
-    chatUnavailable: "Asistentul nu e disponibil acum. Iată ce știm din scanare:",
+    chatUnavailable: "Asistentul nu este disponibil acum. Încearcă din nou.",
     /* istoric */
     histTitle: "Vezi ce s-a schimbat.", exportBtn: "Exportă raport", clearHistory: "Șterge istoricul",
     histEmptyTitle: "Istoricul e gol", histEmptyText: "Fiecare scanare a rețelei tale apare aici, ca să vezi dacă scorul se îmbunătățește.",
@@ -78,6 +81,9 @@ const TEXTS = {
     dateUnknown: "dată necunoscută"
   },
   en: {
+    manualFix: "Show me the steps", agentFix: "Fix with the agent", agentWorking: "The agent is working…",
+    agentDone: "The agent has finished. Scan again to check.", agentAccepted: "The agent received the request. Check the result later.",
+    agentUnavailable: "The agent is not available now. You can follow the steps yourself.",
     noDeviceSelected: "No device selected", selectDeviceHint: "Choose a device from the map, list or findings to see its details and recommended steps.",
     zoomIn: "Zoom in", zoomOut: "Zoom out", resetMap: "Reset map", mapNavigation: "Interactive map. Plus and minus to zoom, arrow keys to pan, zero to reset. Drag the map background to pan.",
     brandCaption: "Security, simply explained.", sidebarNote: "Know your network. Understand the risks. Take the next step.",
@@ -124,7 +130,7 @@ const TEXTS = {
     chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Ask about the scan and network", send: "Send", you: "You", assistant: "Assistant",
     scanProposal: "Scan proposal", localNetwork: "the local network", confirmProposal: "Confirm scan", scanAccepted: "The confirmed scan completed and was saved to history.", scanRejected: "The scan was refused.",
     badgeAI: "AI assistant", badgeDocs: "From documentation", sources: "Sources", chatThinking: "Searching the documentation…", chatLogLabel: "Conversation",
-    chatUnavailable: "The assistant is not available right now. Here is what the scan tells us:",
+    chatUnavailable: "The assistant is not available now. Please try again.",
     histTitle: "See what has changed.", exportBtn: "Export report", clearHistory: "Clear history",
     histEmptyTitle: "History is empty", histEmptyText: "Every scan of your network shows up here, so you can see whether the score gets better.",
     chartTitle: "How the score changes", chartNeedMore: "Run one more scan to see how it changes.", chartAria: "Chart of the score over {n} scans, from {first} to {last}", pointAria: "Scan from {when}: score {score}",

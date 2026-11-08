@@ -17,6 +17,7 @@ from netcheck import history, scanner, service
 from netcheck.scoring import analyze_file
 from netcheck.catalog import CatalogError, attach_explanations
 from netcheck.learn_api import router as learn_router
+from netcheck.remediation_api import router as remediation_router
 from netcheck.report import render_report
 from netcheck.nmap_ports import UDP_PORTS, port_specification
 from netcheck.scan_xml import MAX_XML_BYTES
@@ -57,6 +58,7 @@ def create_app(
         allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
     )
     application.include_router(learn_router)
+    application.include_router(remediation_router)
 
     @application.get("/api/report", response_class=HTMLResponse)
     def report(

@@ -32,7 +32,7 @@ const TEXTS = {
     scoreNote: "Scorul descrie doar această scanare. Nu garantează că rețeaua e sigură.", scoreAria: "Scor {score} din 100, {label}",
     severityTitle: "Ce a găsit scanarea", high: "Ridicată", medium: "Medie", low: "Scăzută", info: "Informativ", countAria: "{n} cu severitate {label}",
     /* grafic */
-    networkTitle: "Dispozitivele tale", networkHint: "Alege un dispozitiv ca să vezi ce poți face.", networkNode: "Rețea", deviceListLabel: "Lista dispozitivelor",
+    networkTitle: "Dispozitivele tale", networkHint: "Alege un dispozitiv ca să vezi ce poți face.", networkNode: "Rețea", noDeviceSelected: "Niciun dispozitiv selectat", deviceListLabel: "Lista dispozitivelor",
     nodeAria: "{ip}, {type}, severitate {severity}", noDevices: "Scanarea nu a găsit niciun dispozitiv.", noFindingsShort: "fără probleme",
     router: "Router", camera: "Cameră", printer: "Imprimantă", nas: "Stocare", iot: "Obiect smart", laptop: "Laptop", phone: "Telefon", tv: "Televizor", unknown: "Necunoscut",
     /* vulnerabilități */
@@ -46,7 +46,7 @@ const TEXTS = {
     /* chat */
     chatTitle: "Întreabă despre scanare", chatAbout: "Despre: {name}", chatNetwork: "toată rețeaua",
     chatNotice: "Răspunsurile vin din documentație sau de la un asistent AI. Dacă e setat un furnizor extern, întrebarea și datele scanării (IP-uri, fără MAC și fără nume de dispozitiv) sunt trimise acolo. Nu scrie parole sau alte secrete.",
-    chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Scrie o întrebare", send: "Trimite", you: "Tu", assistant: "Asistent",
+    chatQ1: "Ce înseamnă rezultatele?", chatQ2: "Cu ce încep?", chatPlaceholder: "Întreabă despre scanare și rețea", send: "Trimite", you: "Tu", assistant: "Asistent",
     badgeAI: "Asistent AI", badgeDocs: "Din documentație", sources: "Surse", chatThinking: "Caut în documentație…", chatLogLabel: "Conversația",
     chatUnavailable: "Asistentul nu e disponibil acum. Iată ce știm din scanare:",
     /* istoric */
@@ -64,7 +64,7 @@ const TEXTS = {
     importedHeader: "Fișier importat: {name} · {date}", importAgain: "Importă alte fișiere", batchLabel: "Fișier afișat", importProgress: "Analizez fișierul {n} din {total}…",
     importResult: "{ok} importate, {bad} cu probleme.", badType: "{name}: nu este fișier .xml.", tooBig: "{name}: depășește 10 MB.",
     brokenFile: "{name}: fișierul e incomplet sau stricat și nu poate fi citit.", importFailed: "{name}: importul nu a reușit. Încearcă din nou.",
-    importStatic: "Aceasta este o imagine a fișierului, nu rețeaua de acum. Nu se actualizează și nu scanează.", importPrivacy: "Fișierele sunt analizate pe acest calculator. Adresele MAC sunt mascate.",
+    importPrivacy: "Fișierele sunt analizate pe acest calculator. Adresele MAC sunt mascate.",
     /* diverse */
     dateUnknown: "dată necunoscută"
   },
@@ -93,7 +93,7 @@ const TEXTS = {
     scoreTitle: "Network score", scoreOf: "/ 100", scoreGood: "Good", scoreMedium: "Fair", scoreBad: "Poor",
     scoreNote: "The score describes this scan only. It does not guarantee the network is safe.", scoreAria: "Score {score} out of 100, {label}",
     severityTitle: "What the scan found", high: "High", medium: "Medium", low: "Low", info: "Information", countAria: "{n} with {label} severity",
-    networkTitle: "Your devices", networkHint: "Choose a device to see what you can do.", networkNode: "Network", deviceListLabel: "Device list",
+    networkTitle: "Your devices", networkHint: "Choose a device to see what you can do.", networkNode: "Network", noDeviceSelected: "No device selected", deviceListLabel: "Device list",
     nodeAria: "{ip}, {type}, {severity} severity", noDevices: "The scan found no devices.", noFindingsShort: "no problems",
     router: "Router", camera: "Camera", printer: "Printer", nas: "Storage", iot: "Smart object", laptop: "Laptop", phone: "Phone", tv: "TV", unknown: "Unknown",
     vulnTitle: "Vulnerabilities", vulnCount: "{n} found", priority: "Most dangerous", firstStep: "First step", noFix: "There is no recommended step.",
@@ -104,7 +104,7 @@ const TEXTS = {
     missingExplain: "There is no explanation available for this problem.", askAI: "Ask AI",
     chatTitle: "Ask about the scan", chatAbout: "About: {name}", chatNetwork: "the whole network",
     chatNotice: "Answers come from documentation or from an AI assistant. If an outside provider is set up, your question and the scan data (IPs, without MAC addresses or device names) are sent to it. Do not type passwords or other secrets.",
-    chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Type a question", send: "Send", you: "You", assistant: "Assistant",
+    chatQ1: "What do the results mean?", chatQ2: "Where do I start?", chatPlaceholder: "Ask about the scan and network", send: "Send", you: "You", assistant: "Assistant",
     badgeAI: "AI assistant", badgeDocs: "From documentation", sources: "Sources", chatThinking: "Searching the documentation…", chatLogLabel: "Conversation",
     chatUnavailable: "The assistant is not available right now. Here is what the scan tells us:",
     histTitle: "History", exportBtn: "Export report", clearHistory: "Clear history",
@@ -120,7 +120,7 @@ const TEXTS = {
     importedHeader: "Imported file: {name} · {date}", importAgain: "Import more files", batchLabel: "File shown", importProgress: "Analyzing file {n} of {total}…",
     importResult: "{ok} imported, {bad} with problems.", badType: "{name}: not an .xml file.", tooBig: "{name}: larger than 10 MB.",
     brokenFile: "{name}: the file is incomplete or damaged and cannot be read.", importFailed: "{name}: the import did not work. Try again.",
-    importStatic: "This is a picture of the file, not your network right now. It does not update and does not scan.", importPrivacy: "Files are analyzed on this computer. MAC addresses are masked.",
+    importPrivacy: "Files are analyzed on this computer. MAC addresses are masked.",
     dateUnknown: "unknown date"
   }
 };

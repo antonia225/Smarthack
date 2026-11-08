@@ -59,19 +59,45 @@ Pentru un furnizor aprobat, exportă `NETCHECK_LLM_API_KEY`, `NETCHECK_LLM_MODEL
 și opțional `NETCHECK_LLM_API_URL` înainte de pornire (vezi `.env.example`).
 Cheia nu se introduce în UI și nu se salvează în Git.
 
-Fără cheie/model, la eroare de rețea, timeout sau răspuns respins, prefixul este
-„Asistentul nu e disponibil acum; iată ce spune documentația” ori echivalentul
-EN. Catalogul funcționează și fără corpus descărcat. Absența corpusului **nu
+Fără cheie/model, la eroare de rețea, timeout sau răspuns respins, `/api/ask`
+răspunde local și determinist, **fără niciun apel LLM** (`mode: fallback`;
+comportamentul proiectat NFR-06, nu o eroare):
+
+- `netcheck/learn/intent.py` recunoaște prin expresii fixe, RO (cu sau fără
+  diacritice, ex. „scor/scorul/scorului”) și EN: cel mai expus dispozitiv, cu ce
+  încep, ce înseamnă, cum repar, care e scorul, e grav, ce porturi sunt raportate.
+  Aceste întrebări trec și de filtrul de temă, chiar fără dispozitiv selectat.
+- `netcheck/learn/fallback.py` compune răspunsul din analiza salvată (`top_risk`,
+  scor, dispozitive, finding-uri) și din `explain`/`fix` ale catalogului în limba
+  cerută, cu pașii numerotați. Nu recalculează și nu modifică finding-uri,
+  severități sau scorul; eticheta scorului (≥ 70 bun, ≥ 50 merită atenție, altfel
+  are nevoie de atenție) este aceeași ca în UI. Prefixul numește sursa:
+  „Răspuns din scanare și catalogul local:” / „Answer from the scan and the local
+  catalog:”. `sources` începe cu `{"type": "scan"}`, urmat de intrările `catalog`
+  (și eventual `kb`) citate.
+- Pentru celelalte întrebări din temă se folosește căutarea locală: o intrare de
+  catalog și cel mult un extras din corpus, cu prefixul „Răspuns din catalogul și
+  documentația locală:” / „Answer from the local catalog and documentation:”.
+- Corpusul este doar sursă secundară: numai pasaje în limba cerută, tăiate la
+  propoziții întregi, fără cuprinsuri sau liste de referințe. Corpusul actual are
+  numai surse în engleză, deci răspunsurile RO folosesc doar catalogul; un pasaj
+  EN găsit este înlocuit cu intrarea de catalog a codului pe care îl documentează.
+
+Catalogul funcționează și fără corpus descărcat. Absența corpusului **nu
 oprește** apelul LLM dacă există cheie/model. Fără internet, serverul local
-trebuie să rămână pornit; indisponibilitatea serverului produce o eroare UI,
-nu un răspuns fallback în browser.
+trebuie să rămână pornit; dacă serverul nu răspunde, UI-ul afișează în browser
+explicațiile din catalog ale scanării deja încărcate („Asistentul nu e disponibil
+acum…”), nu un răspuns `/api/ask`.
 
 ## Limitări
 
 Corpusul nu se construiește la pornire. Builderul păstrează numai textul extras
 din sursele declarate și marchează explicit documentele indisponibile; nu
 completează text lipsă. Pasajele rămân în limba originală, inclusiv în căutări RO,
-care folosesc keywords românești. Catalogul este afișat în limba cerută.
+care folosesc keywords românești; în promptul AI ajung ca atare, iar fallback-ul
+afișează numai pasaje în limba cerută. Catalogul este afișat în limba cerută.
+Recunoașterea întrebărilor în fallback este pe expresii fixe: formulările
+necunoscute ajung la căutarea locală, a cărei relevanță rămâne limitată.
 Retrieverul verifică ID-urile și URL-urile din allowlist; metadatele de revizie
 și atribuire sunt în [NOTICE](NOTICE.md). Un hash HTTP nu garantează o revizie
 editorială. Validatorul nu garantează corectitudinea semantică a răspunsurilor.

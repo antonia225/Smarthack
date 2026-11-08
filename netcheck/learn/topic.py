@@ -11,6 +11,7 @@ import unicodedata
 from typing import Any
 
 from netcheck.catalog import load_catalog
+from .intent import detect
 from .retriever import KNOWLEDGE
 
 _TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
@@ -67,6 +68,10 @@ def _vocabulary() -> set[str]:
 
 def is_on_topic(question: str, analysis: dict[str, Any] | None = None, *, has_device: bool = False) -> bool:
     text = _norm(question)
+    # Questions the offline answer recognizes are about the selected scan by
+    # construction ("Care e scorul meu?", "E grav?", "Is it bad?").
+    if detect(question) is not None:
+        return True
     if any(phrase in text for phrase in _PHRASES):
         return True
     if analysis and any(ip in {d.get("ip") for d in analysis.get("devices", [])} for ip in _IP.findall(text)):

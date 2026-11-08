@@ -9,7 +9,7 @@
 | Istoric: comparare | `GET /api/compare?a=&b=` | diferențe | 400 / 404 → mesaj |
 | Istoric: Export | `GET /api/report?lang=&a=&b=` | HTML pentru A4 | 400 / 404 / 422 → mesaj |
 | Șterge istoricul | `DELETE /api/history` | listă goală, eveniment `netcheck:cleared` | eroare → mesaj |
-| Import (lot de fișiere) | `POST /api/import?filename=` (secvențial) | Afișare statică, `source = "import"`, fără istoric | `status: error` (XML stricat) → raportat pe fișier, restul continuă |
+| Import (lot de fișiere) | `POST /api/import?filename=` (secvențial) | Afișare statică; scanarea se salvează local în baza de date cu `source = "import"` (necesar pentru „Întreabă AI" și raport), dar nu apare în Acasă și Istoric | `status: error` (XML stricat) → raportat pe fișier, restul continuă |
 | Întreabă AI | `POST /api/ask {scan_id, device_ip, question, lang}` | răspuns + surse | 404/400/422 sau indisponibil → mesaj, nu se inventează răspunsuri |
 
-Acasă citește doar scanările `live`; Importul nu le influențează.
+Acasă și Istoric citesc doar scanările `live`; scanările importate rămân în baza locală (se șterg cu „Șterge istoricul"), dar nu le influențează.

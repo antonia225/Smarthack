@@ -19,6 +19,7 @@ from netcheck.catalog import CatalogError, attach_explanations
 from netcheck.learn_api import router as learn_router
 from netcheck.report import render_report
 from netcheck.nmap_ports import UDP_PORTS, port_specification
+from netcheck.scan_xml import MAX_XML_BYTES
 
 
 class ScanRequest(BaseModel):
@@ -112,7 +113,18 @@ def create_app(
         filename: str = Query("scan.xml"),
         lang: Literal["ro", "en"] | None = Query(None),
     ) -> dict[str, Any]:
-        content = await request.body()
+        # Enforce the size limit while reading, so an oversized body is never held in memory.
+        declared = request.headers.get("content-length", "")
+        too_big = HTTPException(status_code=413, detail="File exceeds 10 MB / Fișierul depășește 10 MB")
+        if declared.isdigit() and int(declared) > MAX_XML_BYTES:
+            raise too_big
+        chunks, received = [], 0
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > MAX_XML_BYTES:
+                raise too_big
+            chunks.append(chunk)
+        content = b"".join(chunks)
         # The client name is display metadata, never a filesystem path. Handle
         # both path separators regardless of the server's operating system.
         display_name = filename.replace("\\", "/").rsplit("/", 1)[-1] or "scan.xml"

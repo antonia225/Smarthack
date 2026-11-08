@@ -15,6 +15,7 @@ from .learn import agent, fallback
 from .learn.actions import message, proposal_from_answer, proposal_from_question
 from .learn.evidence import build_evidence
 from .learn.retriever import search, source_dict
+from .learn.topic import REFUSAL, is_on_topic
 from .learn.validator import validate
 
 
@@ -80,6 +81,13 @@ def ask(request: AskRequest) -> dict[str, Any]:
                 "action": requested_proposal,
             },
         )
+
+    if not is_on_topic(request.question, analysis, has_device=bool(request.device_ip)):
+        return {
+            "answer": REFUSAL[request.lang],
+            "sources": [],
+            "mode": "refused",
+        }
 
     evidence = build_evidence(analysis, request.device_ip, lang=request.lang)
     passages = search(request.question, lang=request.lang)

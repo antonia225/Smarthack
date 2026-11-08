@@ -1,10 +1,12 @@
 """Offline tests for Learning Mode privacy, grounding, and fallback behavior."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from netcheck import api, history
+from netcheck.scanner import NetworkInfo
 from netcheck.scoring import analyze_file
 
 
@@ -234,10 +236,15 @@ def test_scan_request_only_returns_a_proposal(monkeypatch, tmp_path):
     result = response.json()
     assert result["action"] == {"action": "propose_scan", "target": "8.8.8.8"}
     assert "confirm" not in result["action"]
-    assert client.post("/api/scan", json={
-        "target": result["action"]["target"],
-        "confirm": True,
-    }).status_code == 403
+    # Pin the detected LAN so the refusal does not depend on the host's network.
+    lab = NetworkInfo("en0", "172.20.10.2", 28, "172.20.10.0/28", "172.20.10.1")
+    with patch("netcheck.scanner.detect_network", return_value=lab), \
+            patch("netcheck.scanner.subprocess.run") as process:
+        assert client.post("/api/scan", json={
+            "target": result["action"]["target"],
+            "confirm": True,
+        }).status_code == 403
+    process.assert_not_called()
 
 
 def test_local_network_request_returns_a_local_network_proposal(monkeypatch, tmp_path):

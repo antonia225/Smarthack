@@ -1,12 +1,66 @@
-# Smarthack / NetCheck
+# REXA NetAware
 
-Prototype for the **Secure Networks, Simply Explained** challenge: scanning
-an authorized network, explaining security risks, and verifying remediation.
+### Local Network Security Monitor
 
-The project currently includes network detection, lab authorization, the
-scanner, offline Nmap XML analysis, findings, scoring, SQLite history, local
-CLI/API access, and a web interface. See the [project status](docs/project-status.md)
-for requirements and remaining work.
+REXA NetAware is a local network security and visibility tool that discovers
+authorized devices, analyzes exposed services, identifies security findings,
+and explains practical remediation steps. It combines a safety-focused
+scanner with deterministic analysis, scan history, a local web interface, and
+an educational assistant that helps users understand what was found.
+
+The project was originally created by **team REXA** during the **Smarthack**
+hackathon for the **Secure Networks, Simply Explained** challenge. It is now
+being developed further as a product-oriented solution for practical network
+security in home and small-office environments. The original team history and
+contributions remain part of the project. The original hackathon repository is
+available at [antonia225/Smarthack](https://github.com/antonia225/Smarthack).
+
+## Team REXA
+
+REXA NetAware was built collaboratively, with responsibilities shared across
+the team:
+
+- **Georgiana Valentina Spataru** — backend and security engineering,
+  including scanner validation, the local API, scan history, deterministic
+  analysis, Learning Mode improvements, testing, and technical documentation.
+- **Elena-Antonia Stoica** — product direction and core platform development,
+  including scanner guardrails, the web experience, Learning Mode, knowledge
+  resources, automated checks, and project integration.
+- **Ioana Cărămidă** — interface and experiment integration, including the
+  web UI flows, import experience, laboratory BEFORE/AFTER work, and
+  cross-platform validation.
+
+The implementation was a team effort: these areas overlap, and design,
+testing, documentation, and integration decisions were made together.
+
+## Product Focus
+
+The project is designed around four principles:
+
+- **Safe by default** — live scans require explicit confirmation and are
+  restricted to authorized private networks.
+- **Deterministic security results** — findings, severities, and scores are
+  produced by the parser, rule engine, and scoring logic, not by an AI model.
+- **Privacy-aware local operation** — scan history is stored locally, MAC
+  addresses are masked, and the server listens only on `127.0.0.1`.
+- **Understandable security** — each finding includes bilingual explanations
+  and actionable remediation guidance, while Learning Mode explains an
+  already-computed scan instead of inventing results.
+
+## Main Capabilities
+
+- Detect the current network and configure an explicit scan allowlist.
+- Run guarded Nmap scans only against authorized private targets.
+- Parse Nmap XML offline and identify devices, services, ports, and findings.
+- Calculate a reproducible network score and compare scan history over time.
+- Serve the results through a local FastAPI endpoint and web interface.
+- Import existing scans, generate reports, and delete local history.
+- Explain findings in Romanian and English through the local catalog and
+  optional grounded Learning Mode.
+
+The implementation details, requirements, verification evidence, and known
+limitations are documented in the [project status](docs/project-status.md)
+and [technical summary](docs/technical-summary.md).
 
 ## Installation
 
